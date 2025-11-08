@@ -174,9 +174,9 @@ def process_drive_link(drive_url):
         print(f"--- [Background Ingest] FAILED: {e} ---")
 
 
-# --- 7. API ENDPOINT: /api/ingest (For Professors) ---
+# --- 7. API ENDPOINT: /chatbot-api/ingest (For Professors) ---
 
-@app.route("/api/ingest", methods=["POST"])
+@app.route("/chatbot-api/ingest", methods=["POST"])
 def handle_ingestion():
     """
     API endpoint to trigger the ingestion of a new document.
@@ -203,9 +203,9 @@ def handle_ingestion():
     }), 202
 
 
-# --- 8. API ENDPOINT: /api/chat (For Students) ---
+# --- 8. API ENDPOINT: /chatbot-api/chat (For Students) ---
 
-@app.route("/api/chat", methods=["POST"])
+@app.route("/chatbot-api/chat", methods=["POST"])
 def handle_chat():
     """
     Handles chat requests from the frontend.
