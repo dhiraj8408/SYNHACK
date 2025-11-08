@@ -4,6 +4,7 @@ import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import ContentTab from './ContentTab';
 import AssignmentsTab from './AssignmentsTab';
 import ForumTab from './ForumTab';
+import AnnouncementsTab from './AnnouncementsTab';
 
 export default function CoursePage() {
   const { courseId } = useParams();
@@ -18,9 +19,10 @@ export default function CoursePage() {
         </Card>
 
         <Tabs defaultValue="content" className="space-y-6">
-          <TabsList className="grid w-full max-w-md grid-cols-3">
+          <TabsList className="grid w-full max-w-2xl grid-cols-4">
             <TabsTrigger value="content">Content</TabsTrigger>
             <TabsTrigger value="assignments">Assignments</TabsTrigger>
+            <TabsTrigger value="announcements">Announcements</TabsTrigger>
             <TabsTrigger value="forum">Forum</TabsTrigger>
           </TabsList>
 
@@ -30,6 +32,10 @@ export default function CoursePage() {
 
           <TabsContent value="assignments">
             <AssignmentsTab courseId={courseId!} />
+          </TabsContent>
+
+          <TabsContent value="announcements">
+            <AnnouncementsTab courseId={courseId!} />
           </TabsContent>
 
           <TabsContent value="forum">
