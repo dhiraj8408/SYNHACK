@@ -3,6 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import ContentTab from './ContentTab';
 import AssignmentsTab from './AssignmentsTab';
+import QuizzesTab from './QuizzesTab';
 import ForumTab from './ForumTab';
 import AnnouncementsTab from './AnnouncementsTab';
 
@@ -33,9 +34,10 @@ export default function CoursePage() {
         </Card>
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-          <TabsList className="grid w-full max-w-2xl grid-cols-4">
+          <TabsList className="grid w-full max-w-3xl grid-cols-5">
             <TabsTrigger value="content">Content</TabsTrigger>
             <TabsTrigger value="assignments">Assignments</TabsTrigger>
+            <TabsTrigger value="quizzes">Quizzes</TabsTrigger>
             <TabsTrigger value="announcements">Announcements</TabsTrigger>
             <TabsTrigger value="forum">Forum</TabsTrigger>
           </TabsList>
@@ -46,6 +48,10 @@ export default function CoursePage() {
 
           <TabsContent value="assignments">
             <AssignmentsTab courseId={courseId!} />
+          </TabsContent>
+
+          <TabsContent value="quizzes">
+            <QuizzesTab courseId={courseId!} />
           </TabsContent>
 
           <TabsContent value="announcements">
