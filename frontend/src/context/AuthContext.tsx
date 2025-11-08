@@ -13,8 +13,8 @@ interface User {
 interface AuthContextType {
   user: User | null;
   token: string | null;
-  login: (email: string, password: string) => Promise<void>;
-  signup: (data: SignupData) => Promise<void>;
+  login: (email: string, password: string) => Promise<User>;
+  signup: (data: SignupData) => Promise<User>;
   logout: () => void;
   loading: boolean;
 }
@@ -53,18 +53,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     initAuth();
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string): Promise<User> => {
     const response = await authService.login(email, password);
     setUser(response.user);
     setToken(response.token);
     localStorage.setItem('token', response.token);
+    return response.user;
   };
 
-  const signup = async (data: SignupData) => {
+  const signup = async (data: SignupData): Promise<User> => {
     const response = await authService.signup(data);
     setUser(response.user);
     setToken(response.token);
     localStorage.setItem('token', response.token);
+    return response.user;
   };
 
   const logout = () => {

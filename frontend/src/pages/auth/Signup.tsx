@@ -39,7 +39,7 @@ export default function Signup() {
     setLoading(true);
 
     try {
-      await signup({
+      const newUser = await signup({
         name: formData.name,
         email: formData.email,
         password: formData.password,
@@ -47,7 +47,17 @@ export default function Signup() {
         role: formData.role.toLowerCase(),
       });
       toast({ title: 'Account created successfully!' });
-      navigate('/');
+      
+      // Redirect based on user role
+      if (newUser.role === 'student') {
+        navigate('/student/dashboard');
+      } else if (newUser.role === 'professor') {
+        navigate('/professor/dashboard');
+      } else if (newUser.role === 'admin') {
+        navigate('/admin/dashboard');
+      } else {
+        navigate('/');
+      }
     } catch (error: any) {
       toast({
         title: 'Signup failed',

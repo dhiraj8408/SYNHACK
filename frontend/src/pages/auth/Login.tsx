@@ -21,9 +21,19 @@ export default function Login() {
     setLoading(true);
 
     try {
-      await login(email, password);
+      const loggedInUser = await login(email, password);
       toast({ title: 'Login successful!' });
-      navigate('/');
+      
+      // Redirect based on user role
+      if (loggedInUser.role === 'student') {
+        navigate('/student/dashboard');
+      } else if (loggedInUser.role === 'professor') {
+        navigate('/professor/dashboard');
+      } else if (loggedInUser.role === 'admin') {
+        navigate('/admin/dashboard');
+      } else {
+        navigate('/');
+      }
     } catch (error: any) {
       toast({
         title: 'Login failed',
