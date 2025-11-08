@@ -1,0 +1,4 @@
+chatbot-env/
+.env
+__pycache__/
+Pub-Sub-Model.pdf
