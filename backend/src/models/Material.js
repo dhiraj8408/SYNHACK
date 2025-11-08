@@ -5,7 +5,7 @@ const materialSchema = new mongoose.Schema(
     courseId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Course",
-      required: true,
+      required: false, // Optional since we identify by uploadedBy
     },
 
     moduleTitle: { type: String, required: true },
