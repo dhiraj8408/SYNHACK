@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Course from "../models/Course.js";
 
 export const listCourses = async (req, res) => {
@@ -11,13 +12,30 @@ export const getCourseById = async (req, res) => {
 };
 
 export const getCoursesByStudent = async (req, res) => {
-  const courses = await Course.find({ enrolledStudents: req.params.studentId });
-  res.json(courses);
+  try {
+    // Convert studentId to ObjectId and query courses where studentId is in studentIds array
+    const studentId = new mongoose.Types.ObjectId(req.params.studentId);
+    
+    const courses = await Course.find({ 
+      studentIds: studentId
+    })
+      .populate("professorId", "name email")
+      .populate("studentIds", "name email");
+    res.json(courses);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
 
 export const getCoursesByProfessor = async (req, res) => {
-  const courses = await Course.find({ professorId: req.params.professorId });
-  res.json(courses);
+  try {
+    const courses = await Course.find({ professorId: req.params.professorId })
+      .populate("professorId", "name email")
+      .populate("studentIds", "name email");
+    res.json(courses);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
 
 export const createCourse = async (req, res) => {
