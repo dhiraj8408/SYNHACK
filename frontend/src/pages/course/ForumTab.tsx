@@ -23,6 +23,7 @@ import {
 
 interface ForumTabProps {
   courseId: string;
+  threadId?: string;
 }
 
 interface Reply {
@@ -50,7 +51,7 @@ interface Thread {
   createdAt: string;
 }
 
-export default function ForumTab({ courseId }: ForumTabProps) {
+export default function ForumTab({ courseId, threadId }: ForumTabProps) {
   const { user, token } = useAuth();
   const [threads, setThreads] = useState<Thread[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,6 +61,7 @@ export default function ForumTab({ courseId }: ForumTabProps) {
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyMessage, setReplyMessage] = useState('');
   const [deleteThreadId, setDeleteThreadId] = useState<string | null>(null);
+  const [highlightedThreadId, setHighlightedThreadId] = useState<string | null>(null);
   const { toast } = useToast();
 
   // Load threads on mount
@@ -82,6 +84,22 @@ export default function ForumTab({ courseId }: ForumTabProps) {
 
     loadThreads();
   }, [courseId, toast]);
+
+  // Scroll to and highlight specific thread when threadId is provided
+  useEffect(() => {
+    if (threadId && threads.length > 0) {
+      const timer = setTimeout(() => {
+        const threadElement = document.getElementById(`thread-${threadId}`);
+        if (threadElement) {
+          threadElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          setHighlightedThreadId(threadId);
+          // Remove highlight after 3 seconds
+          setTimeout(() => setHighlightedThreadId(null), 3000);
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [threadId, threads]);
 
   // Socket setup
   useEffect(() => {
@@ -286,7 +304,14 @@ export default function ForumTab({ courseId }: ForumTabProps) {
               {threads.map((thread) => (
                 <Card
                   key={thread._id}
-                  className={`border-border ${thread.isResolved ? 'opacity-75' : ''}`}
+                  id={`thread-${thread._id}`}
+                  className={`border-border transition-all ${
+                    thread.isResolved ? 'opacity-75' : ''
+                  } ${
+                    highlightedThreadId === thread._id
+                      ? 'ring-2 ring-primary shadow-lg'
+                      : ''
+                  }`}
                 >
                   <CardContent className="pt-6">
                     <div className="space-y-4">

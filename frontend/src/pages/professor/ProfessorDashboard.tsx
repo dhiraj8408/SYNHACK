@@ -124,7 +124,7 @@ export default function ProfessorDashboard() {
                   return (
                     <Link
                       key={thread._id}
-                      to={`/courses/${thread.courseId}?tab=forum`}
+                      to={`/course/${thread.courseId}?tab=forum&threadId=${thread._id}`}
                       className="block p-3 border rounded-lg hover:bg-muted/50 transition-colors"
                     >
                       <div className="flex items-start justify-between gap-2">

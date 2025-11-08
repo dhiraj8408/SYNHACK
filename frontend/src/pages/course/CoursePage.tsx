@@ -1,4 +1,4 @@
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
 import ContentTab from './ContentTab';
@@ -8,6 +8,20 @@ import AnnouncementsTab from './AnnouncementsTab';
 
 export default function CoursePage() {
   const { courseId } = useParams();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const activeTab = searchParams.get('tab') || 'content';
+  const threadId = searchParams.get('threadId');
+
+  const handleTabChange = (value: string) => {
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set('tab', value);
+    // Remove threadId when switching away from forum tab
+    if (value !== 'forum') {
+      newParams.delete('threadId');
+    }
+    navigate(`/course/${courseId}?${newParams.toString()}`, { replace: true });
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -18,7 +32,7 @@ export default function CoursePage() {
           </CardHeader>
         </Card>
 
-        <Tabs defaultValue="content" className="space-y-6">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
           <TabsList className="grid w-full max-w-2xl grid-cols-4">
             <TabsTrigger value="content">Content</TabsTrigger>
             <TabsTrigger value="assignments">Assignments</TabsTrigger>
@@ -39,7 +53,7 @@ export default function CoursePage() {
           </TabsContent>
 
           <TabsContent value="forum">
-            <ForumTab courseId={courseId!} />
+            <ForumTab courseId={courseId!} threadId={threadId || undefined} />
           </TabsContent>
         </Tabs>
       </div>

@@ -55,7 +55,11 @@ export const CourseCard = ({ course }: CourseCardProps) => {
                 <span className="text-muted-foreground">Progress</span>
                 <Badge variant="secondary">{progress.percentage}%</Badge>
               </div>
-              <Progress value={progress.percentage} className="h-2" />
+              <Progress 
+                value={progress.percentage} 
+                className="h-2 bg-purple-100" 
+                indicatorClassName="bg-purple-700"
+              />
               <p className="text-xs text-muted-foreground">
                 {progress.completedCount} of {progress.totalModules} modules completed
               </p>

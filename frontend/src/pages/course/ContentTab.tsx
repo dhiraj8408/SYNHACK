@@ -229,7 +229,11 @@ export default function ContentTab({ courseId }: ContentTabProps) {
                   {progress.percentage}%
                 </Badge>
               </div>
-              <Progress value={progress.percentage} className="h-3" />
+              <Progress 
+                value={progress.percentage} 
+                className="h-3 bg-purple-100" 
+                indicatorClassName="bg-purple-700"
+              />
               <p className="text-xs text-muted-foreground">
                 Keep going! You're making great progress.
               </p>
