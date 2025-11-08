@@ -1,0 +1,9 @@
+flask
+flask-cors
+chromadb
+groq
+sentence-transformers
+PyMuPDF
+requests
+python-dotenv
+langchain-text-splitters
