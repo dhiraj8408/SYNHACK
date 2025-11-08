@@ -1,10 +1,18 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
+import { useTheme } from '@/context/ThemeContext';
 import { Button } from '@/components/ui/button';
-import { GraduationCap, LogOut, User } from 'lucide-react';
+import { GraduationCap, LogOut, User, Sun, Moon, Monitor } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 export const Navbar = () => {
   const { user, logout } = useAuth();
+  const { theme, setTheme, resolvedTheme } = useTheme();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -36,6 +44,34 @@ export const Navbar = () => {
           </Link>
 
           <div className="flex items-center gap-4">
+            {/* Theme Toggle */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  {resolvedTheme === 'dark' ? (
+                    <Moon className="h-5 w-5" />
+                  ) : (
+                    <Sun className="h-5 w-5" />
+                  )}
+                  <span className="sr-only">Toggle theme</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setTheme('light')}>
+                  <Sun className="h-4 w-4 mr-2" />
+                  <span>Light</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTheme('dark')}>
+                  <Moon className="h-4 w-4 mr-2" />
+                  <span>Dark</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setTheme('system')}>
+                  <Monitor className="h-4 w-4 mr-2" />
+                  <span>System</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             {user ? (
               <>
                 <Link to={getDashboardLink()}>

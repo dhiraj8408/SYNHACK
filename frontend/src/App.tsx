@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/context/AuthContext";
+import { ThemeProvider } from "@/context/ThemeContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { Navbar } from "@/components/Navbar";
 
@@ -15,19 +16,21 @@ import ProfessorDashboard from "./pages/professor/ProfessorDashboard";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import CoursePage from "./pages/course/CoursePage";
 import Chatbot from "./pages/student/Chatbot";
+import CodingPractice from "./pages/student/CodingPractice";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Navbar />
-          <Routes>
+    <ThemeProvider>
+      <AuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Navbar />
+            <Routes>
             <Route path="/" element={<Landing />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
@@ -45,6 +48,14 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={['student']}>
                   <Chatbot />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/student/coding-practice"
+              element={
+                <ProtectedRoute allowedRoles={['student']}>
+                  <CodingPractice />
                 </ProtectedRoute>
               }
             />
@@ -81,6 +92,7 @@ const App = () => (
         </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 

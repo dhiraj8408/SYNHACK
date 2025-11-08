@@ -41,7 +41,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (storedToken) {
         try {
           const userData = await authService.getMe(storedToken);
-          setUser(userData);
+          // Map backend user object to frontend User interface
+          setUser({
+            id: userData._id || userData.id,
+            name: userData.name,
+            email: userData.email,
+            role: userData.role,
+            department: userData.department || '',
+            enrolledCourses: userData.enrolledCourses || [],
+          });
           setToken(storedToken);
         } catch (error) {
           localStorage.removeItem('token');
@@ -55,18 +63,38 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const login = async (email: string, password: string): Promise<User> => {
     const response = await authService.login(email, password);
-    setUser(response.user);
+    // After login, fetch full user data including department
+    const fullUserData = await authService.getMe(response.token);
+    const user: User = {
+      id: fullUserData._id || fullUserData.id,
+      name: fullUserData.name,
+      email: fullUserData.email,
+      role: fullUserData.role,
+      department: fullUserData.department || '',
+      enrolledCourses: fullUserData.enrolledCourses || [],
+    };
+    setUser(user);
     setToken(response.token);
     localStorage.setItem('token', response.token);
-    return response.user;
+    return user;
   };
 
   const signup = async (data: SignupData): Promise<User> => {
     const response = await authService.signup(data);
-    setUser(response.user);
+    // After signup, fetch full user data including department
+    const fullUserData = await authService.getMe(response.token);
+    const user: User = {
+      id: fullUserData._id || fullUserData.id,
+      name: fullUserData.name,
+      email: fullUserData.email,
+      role: fullUserData.role,
+      department: fullUserData.department || '',
+      enrolledCourses: fullUserData.enrolledCourses || [],
+    };
+    setUser(user);
     setToken(response.token);
     localStorage.setItem('token', response.token);
-    return response.user;
+    return user;
   };
 
   const logout = () => {

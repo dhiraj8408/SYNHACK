@@ -29,6 +29,7 @@ import {
 import { useAuth } from '@/context/AuthContext';
 import { materialService } from '@/services/materialService';
 import { progressService } from '@/services/progressService';
+import ModuleQuestions from '@/components/ModuleQuestions';
 import { useToast } from '@/hooks/use-toast';
 import { FileText, Download, Upload, Link as LinkIcon, X, CheckCircle2, Circle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -224,6 +225,11 @@ export default function ContentTab({ courseId }: ContentTabProps) {
                   <p className="text-sm text-muted-foreground">
                     {progress.completedCount} of {progress.totalModules} modules completed
                   </p>
+                  {progress.totalQuestions !== undefined && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {progress.answeredQuestions || 0} of {progress.totalQuestions} questions answered
+                    </p>
+                  )}
                 </div>
                 <Badge variant="secondary" className="text-lg font-semibold">
                   {progress.percentage}%
@@ -449,6 +455,11 @@ export default function ContentTab({ courseId }: ContentTabProps) {
                             <h3 className="font-semibold text-lg">{module}</h3>
                             <p className="text-sm text-muted-foreground">
                               {moduleMaterials.length} material{moduleMaterials.length !== 1 ? 's' : ''}
+                              {progress?.moduleCompletion?.[module] && (
+                                <span className="ml-2">
+                                  • {progress.moduleCompletion[module].answeredQuestions}/{progress.moduleCompletion[module].totalQuestions} questions
+                                </span>
+                              )}
                             </p>
                           </div>
                           {isStudent && isComplete && (
@@ -459,35 +470,40 @@ export default function ContentTab({ courseId }: ContentTabProps) {
                         </div>
                       </AccordionTrigger>
                       <AccordionContent>
-                        <div className="space-y-3 pt-2">
-                          {moduleMaterials.map((material: any) => (
-                            <div
-                              key={material._id}
-                              className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors"
-                            >
-                              <div className="flex items-center gap-3">
-                                <FileText className="h-5 w-5 text-primary" />
-                                <div>
-                                  <h4 className="font-medium">{material.moduleTitle}</h4>
-                                  <p className="text-sm text-muted-foreground">
-                                    {material.type.toUpperCase()}
-                                    {material.type === 'link' && (
-                                      <span className="ml-2">
-                                        <LinkIcon className="h-3 w-3 inline" />
-                                      </span>
-                                    )}
-                                  </p>
-                                </div>
-                              </div>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleDownload(material)}
+                        <div className="space-y-4 pt-2">
+                          <div className="space-y-3">
+                            {moduleMaterials.map((material: any) => (
+                              <div
+                                key={material._id}
+                                className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors"
                               >
-                                <Download className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          ))}
+                                <div className="flex items-center gap-3">
+                                  <FileText className="h-5 w-5 text-primary" />
+                                  <div>
+                                    <h4 className="font-medium">{material.moduleTitle}</h4>
+                                    <p className="text-sm text-muted-foreground">
+                                      {material.type.toUpperCase()}
+                                      {material.type === 'link' && (
+                                        <span className="ml-2">
+                                          <LinkIcon className="h-3 w-3 inline" />
+                                        </span>
+                                      )}
+                                    </p>
+                                  </div>
+                                </div>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleDownload(material)}
+                                >
+                                  <Download className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                          
+                          {/* Module Questions */}
+                          <ModuleQuestions courseId={courseId} module={module} />
                         </div>
                       </AccordionContent>
                     </AccordionItem>

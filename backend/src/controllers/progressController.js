@@ -1,5 +1,7 @@
 import Progress from "../models/Progress.js";
 import Material from "../models/Material.js";
+import ModuleQuestion from "../models/ModuleQuestion.js";
+import ModuleQuestionAnswer from "../models/ModuleQuestionAnswer.js";
 import mongoose from "mongoose";
 
 // Get progress for a student in a course
@@ -25,10 +27,54 @@ export const getProgress = async (req, res) => {
     // Get all unique modules for this course
     const materials = await Material.find({ courseId }).distinct("module");
     
-    // Calculate progress
+    // Get all questions for all modules
+    const allQuestions = await ModuleQuestion.find({ courseId });
+    const moduleQuestionsMap = {};
+    allQuestions.forEach(q => {
+      if (!moduleQuestionsMap[q.module]) {
+        moduleQuestionsMap[q.module] = [];
+      }
+      moduleQuestionsMap[q.module].push(q._id);
+    });
+
+    // Get all answered questions for this student
+    const answeredQuestions = await ModuleQuestionAnswer.find({
+      studentId,
+      questionId: { $in: allQuestions.map(q => q._id) },
+    });
+
+    const answeredQuestionIds = new Set(answeredQuestions.map(a => a.questionId.toString()));
+
+    // Calculate module completion based on questions
+    const moduleCompletion = {};
+    for (const module of materials) {
+      const moduleQIds = moduleQuestionsMap[module] || [];
+      const totalQuestions = moduleQIds.length;
+      const answeredCount = moduleQIds.filter(qId => answeredQuestionIds.has(qId.toString())).length;
+      
+      // Module is complete if all questions are answered (or no questions exist)
+      const isComplete = totalQuestions === 0 || answeredCount === totalQuestions;
+      
+      moduleCompletion[module] = {
+        totalQuestions,
+        answeredQuestions: answeredCount,
+        isComplete,
+      };
+    }
+    
+    // Calculate overall progress
     const totalModules = materials.length;
     const completedModules = progress.completedModules || [];
-    const completedCount = completedModules.length;
+    
+    // Also count modules where all questions are answered
+    const modulesWithAllQuestionsAnswered = Object.entries(moduleCompletion)
+      .filter(([_, data]) => data.totalQuestions > 0 && data.isComplete)
+      .map(([module, _]) => module);
+    
+    // Combine manual completion and question-based completion
+    const allCompletedModules = [...new Set([...completedModules, ...modulesWithAllQuestionsAnswered])];
+    const completedCount = allCompletedModules.length;
+    
     const percentage = totalModules > 0 
       ? Math.round((completedCount / totalModules) * 100) 
       : 0;
@@ -38,9 +84,12 @@ export const getProgress = async (req, res) => {
       studentId,
       totalModules,
       completedCount,
-      completedModules,
+      completedModules: allCompletedModules,
       percentage,
       allModules: materials.sort(),
+      moduleCompletion,
+      totalQuestions: allQuestions.length,
+      answeredQuestions: answeredQuestions.length,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

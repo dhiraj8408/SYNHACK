@@ -12,6 +12,8 @@ import forumRoutes from "./routes/forumRoutes.js";
 import chatbotRoutes from "./routes/chatbotRoutes.js";
 import progressRoutes from "./routes/progressRoutes.js";
 import announcementRoutes from "./routes/announcementRoutes.js";
+import codeRoutes from "./routes/codeRoutes.js";
+import moduleQuestionRoutes from "./routes/moduleQuestionRoutes.js";
 const app = express();
 
 app.use(express.json({ limit: "2mb" }));
@@ -42,5 +44,7 @@ app.use("/api/forum", forumRoutes);
 app.use("/api/chatbot", chatbotRoutes);
 app.use("/api/progress", progressRoutes);
 app.use("/api/announcements", announcementRoutes);
+app.use("/api/code", codeRoutes);
+app.use("/api/module-questions", moduleQuestionRoutes);
 
 export default app;

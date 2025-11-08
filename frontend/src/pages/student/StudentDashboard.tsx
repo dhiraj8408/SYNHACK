@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { BookOpen, MessageSquare, Brain, ArrowRight } from 'lucide-react';
+import { BookOpen, MessageSquare, Brain, ArrowRight, Code2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function StudentDashboard() {
@@ -59,7 +59,7 @@ export default function StudentDashboard() {
         </div>
 
         {/* Quick Actions */}
-        <div className="grid md:grid-cols-3 gap-4 mb-8">
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <Link to="/student/chatbot">
             <Card className="border-border hover:shadow-elegant transition-all cursor-pointer">
               <CardContent className="p-6">
@@ -76,11 +76,27 @@ export default function StudentDashboard() {
             </Card>
           </Link>
 
+          <Link to="/student/coding-practice">
+            <Card className="border-border hover:shadow-elegant transition-all cursor-pointer">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-4">
+                  <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <Code2 className="h-6 w-6 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold">Coding Practice</h3>
+                    <p className="text-sm text-muted-foreground">Practice coding</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+
           <Card className="border-border">
             <CardContent className="p-6">
               <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <BookOpen className="h-6 w-6 text-primary" />
+                <div className="h-12 w-12 rounded-lg bg-secondary/10 flex items-center justify-center">
+                  <BookOpen className="h-6 w-6 text-secondary" />
                 </div>
                 <div>
                   <h3 className="font-semibold">{courses.length} Courses</h3>
@@ -93,8 +109,8 @@ export default function StudentDashboard() {
           <Card className="border-border">
             <CardContent className="p-6">
               <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-lg bg-secondary/10 flex items-center justify-center">
-                  <MessageSquare className="h-6 w-6 text-secondary" />
+                <div className="h-12 w-12 rounded-lg bg-muted flex items-center justify-center">
+                  <MessageSquare className="h-6 w-6 text-muted-foreground" />
                 </div>
                 <div>
                   <h3 className="font-semibold">Forum</h3>
