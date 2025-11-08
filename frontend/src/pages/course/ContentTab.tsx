@@ -44,10 +44,10 @@ export default function ContentTab({ courseId }: ContentTabProps) {
 
   useEffect(() => {
     const fetchMaterials = async () => {
-      if (!user?.id) return;
+      if (!courseId) return;
       
       try {
-        const data = await materialService.getMaterialsByUploader(user.id);
+        const data = await materialService.getMaterialsByCourse(courseId);
         setMaterials(data);
       } catch (error: any) {
         toast({
@@ -61,7 +61,7 @@ export default function ContentTab({ courseId }: ContentTabProps) {
     };
 
     fetchMaterials();
-  }, [user?.id, toast]);
+  }, [courseId, toast]);
 
   const handleUpload = async () => {
     if (!uploadData.moduleTitle || !uploadData.type) {
@@ -121,10 +121,8 @@ export default function ContentTab({ courseId }: ContentTabProps) {
       setUploadDialogOpen(false);
 
       // Refresh materials list
-      if (user?.id) {
-        const data = await materialService.getMaterialsByUploader(user.id);
-        setMaterials(data);
-      }
+      const data = await materialService.getMaterialsByCourse(courseId);
+      setMaterials(data);
     } catch (error: any) {
       toast({
         title: 'Upload Failed',
