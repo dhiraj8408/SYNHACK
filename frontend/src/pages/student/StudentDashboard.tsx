@@ -1,28 +1,45 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { courseService } from '@/services/courseService';
+import { forumService } from '@/services/forumService';
 import { CourseCard } from '@/components/CourseCard';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { BookOpen, MessageSquare, Brain } from 'lucide-react';
+import { BookOpen, MessageSquare, Brain, ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function StudentDashboard() {
   const { user } = useAuth();
   const [courses, setCourses] = useState([]);
+  const [recentThreads, setRecentThreads] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
   useEffect(() => {
-    const fetchCourses = async () => {
+    const fetchData = async () => {
       try {
-        const data = await courseService.getCoursesByStudent(user.id);
-        setCourses(data);
+        const coursesData = await courseService.getCoursesByStudent(user.id);
+        setCourses(coursesData);
+
+        // Fetch recent threads from all courses
+        const threadsPromises = coursesData.map((course: any) =>
+          forumService.getThreads(course._id).catch(() => [])
+        );
+        const threadsResults = await Promise.all(threadsPromises);
+        const allThreads = threadsResults.flat();
+        
+        // Sort by date and take most recent 5
+        const sorted = allThreads
+          .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+          .slice(0, 5);
+        
+        setRecentThreads(sorted);
       } catch (error: any) {
         toast({
-          title: 'Error loading courses',
-          description: error.response?.data?.message || 'Failed to fetch courses',
+          title: 'Error loading data',
+          description: error.response?.data?.message || 'Failed to fetch data',
           variant: 'destructive',
         });
       } finally {
@@ -30,8 +47,8 @@ export default function StudentDashboard() {
       }
     };
 
-    fetchCourses();
-  }, [toast]);
+    fetchData();
+  }, [toast, user.id]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -87,6 +104,52 @@ export default function StudentDashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Recent Forum Activity */}
+        {recentThreads.length > 0 && (
+          <Card className="border-border mb-8">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <MessageSquare className="h-5 w-5" />
+                  Recent Forum Activity
+                </CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {recentThreads.map((thread: any) => {
+                  const course = courses.find((c: any) => c._id === thread.courseId);
+                  return (
+                    <Link
+                      key={thread._id}
+                      to={`/courses/${thread.courseId}?tab=forum`}
+                      className="block p-3 border rounded-lg hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-medium text-sm truncate">{thread.title}</h4>
+                          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                            {thread.message}
+                          </p>
+                          <div className="flex items-center gap-2 mt-2">
+                            <Badge variant="outline" className="text-xs">
+                              {course?.courseName || 'Course'}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              {thread.createdBy?.name || 'Unknown'} • {new Date(thread.createdAt).toLocaleDateString()}
+                            </span>
+                          </div>
+                        </div>
+                        <ArrowRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Courses */}
         <Card className="border-border">

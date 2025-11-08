@@ -23,4 +23,14 @@ const threadSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Virtual populate for replies
+threadSchema.virtual("replies", {
+  ref: "Reply",
+  localField: "_id",
+  foreignField: "threadId",
+});
+
+threadSchema.set("toJSON", { virtuals: true });
+threadSchema.set("toObject", { virtuals: true });
+
 export default mongoose.model("Thread", threadSchema);

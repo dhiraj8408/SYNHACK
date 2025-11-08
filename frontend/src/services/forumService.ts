@@ -16,8 +16,18 @@ export const forumService = {
     return response.data;
   },
 
+  deleteThread: async (threadId: string) => {
+    const response = await apiClient.delete(`/api/forum/thread/${threadId}`);
+    return response.data;
+  },
+
   getThreads: async (courseId: string) => {
     const response = await apiClient.get(`/api/forum/threads/${courseId}`);
+    return response.data;
+  },
+
+  getThreadById: async (threadId: string) => {
+    const response = await apiClient.get(`/api/forum/thread/${threadId}`);
     return response.data;
   },
 };
