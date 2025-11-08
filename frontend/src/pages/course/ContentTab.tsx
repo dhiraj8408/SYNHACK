@@ -85,7 +85,7 @@ export default function ContentTab({ courseId }: ContentTabProps) {
 
   // Group materials by module
   const groupedMaterials = materials.reduce((acc: any, material: any) => {
-    const module = material.module || 'Uncategorized';
+    const module = material.module || 'Optional Materials';
     if (!acc[module]) {
       acc[module] = [];
     }
