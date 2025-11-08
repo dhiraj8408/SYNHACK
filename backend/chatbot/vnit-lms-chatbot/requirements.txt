@@ -7,3 +7,8 @@ PyMuPDF
 requests
 python-dotenv
 langchain-text-splitters
+python-pptx
+pytesseract
+Pillow
+moviepy
+speechrecognition
