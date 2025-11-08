@@ -9,6 +9,7 @@ import materialRoutes from "./routes/materialRoutes.js";
 import assignmentRoutes from "./routes/assignmentRoutes.js";
 import forumRoutes from "./routes/forumRoutes.js";
 import chatbotRoutes from "./routes/chatbotRoutes.js";
+import progressRoutes from "./routes/progressRoutes.js";
 const app = express();
 
 app.use(express.json({ limit: "2mb" }));
@@ -36,5 +37,6 @@ app.use("/api/materials", materialRoutes);
 app.use("/api/assignments", assignmentRoutes);
 app.use("/api/forum", forumRoutes);
 app.use("/api/chatbot", chatbotRoutes);
+app.use("/api/progress", progressRoutes);
 
 export default app;
