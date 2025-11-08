@@ -1,8 +1,8 @@
-import apiClient from './apiClient';
+import chatClient from './chatClient';
 
 export const chatbotService = {
   askQuestion: async (courseId: string, question: string) => {
-    const response = await apiClient.post('/api/chatbot/ask', { courseId, question });
+    const response = await chatClient.post('/chatbot-api/chat', { courseId, question });
     return response.data;
   },
 };

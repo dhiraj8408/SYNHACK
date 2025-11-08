@@ -8,8 +8,8 @@ export const materialService = {
     return response.data;
   },
 
-  getCourseMaterials: async (courseId: string) => {
-    const response = await apiClient.get(`/api/materials/${courseId}`);
+  getMaterialsByUploader: async (uploadedBy: string) => {
+    const response = await apiClient.get(`/api/materials?uploadedBy=${uploadedBy}`);
     return response.data;
   },
 };

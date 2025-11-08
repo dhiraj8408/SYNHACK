@@ -30,7 +30,9 @@ print(f"Using one of {len(api_key_list)} Groq API keys.")
 # --- 3. SET UP FLASK APP AND CORS ---
 app = Flask(__name__)
 # This allows your teammates' frontend (on a different domain) to call your API
-CORS(app) 
+# Allow CORS from all origins (useful for development). If you need to restrict origins,
+# replace '*' with a list of allowed origins or a specific domain.
+CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 
 # --- 4. GLOBAL CONSTANTS ---
 DB_PATH = "./chroma_db"
@@ -291,4 +293,4 @@ def handle_chat():
 if __name__ == "__main__":
     # Runs the server on port 5000 and makes it accessible on your network
     # 'debug=True' automatically reloads the server when you save changes
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5001, debug=True)
