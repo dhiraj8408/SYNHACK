@@ -21,11 +21,15 @@ export const addMaterial = async (req, res) => {
       return res.status(400).json({ message: "moduleTitle and type are required" });
     }
 
+    if (!req.body.courseId) {
+      return res.status(400).json({ message: "courseId is required" });
+    }
+
     const created = await Material.create({
       moduleTitle: req.body.moduleTitle,
       type: req.body.type,
       fileUrl: fileUrl,
-      courseId: req.body.courseId || null, // Optional
+      courseId: req.body.courseId,
       uploadedBy: req.user.id,
     });
 
@@ -37,14 +41,29 @@ export const addMaterial = async (req, res) => {
 
 export const listMaterials = async (req, res) => {
   try {
-    const { uploadedBy } = req.query;
+    const { uploadedBy, courseId } = req.query;
     
-    if (!uploadedBy) {
-      return res.status(400).json({ message: "uploadedBy parameter is required" });
+    // Build query - support both uploadedBy and courseId
+    const query = {};
+    
+    if (uploadedBy) {
+      query.uploadedBy = uploadedBy;
+    }
+    
+    if (courseId) {
+      query.courseId = courseId;
+    }
+    
+    // If neither parameter is provided, return error
+    if (!uploadedBy && !courseId) {
+      return res.status(400).json({ 
+        message: "Either uploadedBy or courseId parameter is required" 
+      });
     }
 
-    const list = await Material.find({ uploadedBy })
+    const list = await Material.find(query)
       .populate("uploadedBy", "name email")
+      .populate("courseId", "courseName courseCode")
       .sort({ createdAt: -1 });
     
     res.json(list);
