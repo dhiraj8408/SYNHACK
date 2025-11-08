@@ -17,7 +17,7 @@ export default function StudentDashboard() {
   useEffect(() => {
     const fetchCourses = async () => {
       try {
-        const data = await courseService.getMyCourses();
+        const data = await courseService.getCoursesByStudent(user.id);
         setCourses(data);
       } catch (error: any) {
         toast({

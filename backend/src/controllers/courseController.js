@@ -5,9 +5,14 @@ export const listCourses = async (req, res) => {
   res.json(courses);
 };
 
-export const getCourse = async (req, res) => {
+export const getCourseById = async (req, res) => {
   const course = await Course.findById(req.params.id);
   res.json(course);
+};
+
+export const getCoursesByStudent = async (req, res) => {
+  const courses = await Course.find({ enrolledStudents: req.params.studentId });
+  res.json(courses);
 };
 
 export const getCoursesByProfessor = async (req, res) => {
@@ -46,10 +51,6 @@ export const enrollStudent = async (req, res) => {
   res.json(course);
 };
 
-export const getCoursesByStudent = async (req, res) => {
-  const courses = await Course.find({ enrolledStudents: req.params.studentId });
-  res.json(courses);
-};
 export const unenrollStudent = async (req, res) => {
   const { studentId } = req.body;
   const course = await Course.findById(req.params.id);
