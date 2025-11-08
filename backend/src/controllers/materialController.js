@@ -17,8 +17,8 @@ export const addMaterial = async (req, res) => {
       return res.status(400).json({ message: "Either file or link is required" });
     }
 
-    if (!req.body.moduleTitle || !req.body.type) {
-      return res.status(400).json({ message: "moduleTitle and type are required" });
+    if (!req.body.module || !req.body.moduleTitle || !req.body.type) {
+      return res.status(400).json({ message: "module, moduleTitle and type are required" });
     }
 
     if (!req.body.courseId) {
@@ -26,6 +26,7 @@ export const addMaterial = async (req, res) => {
     }
 
     const created = await Material.create({
+      module: req.body.module,
       moduleTitle: req.body.moduleTitle,
       type: req.body.type,
       fileUrl: fileUrl,
@@ -64,7 +65,7 @@ export const listMaterials = async (req, res) => {
     const list = await Material.find(query)
       .populate("uploadedBy", "name email")
       .populate("courseId", "courseName courseCode")
-      .sort({ createdAt: -1 });
+      .sort({ module: 1, createdAt: -1 });
     
     res.json(list);
   } catch (error) {

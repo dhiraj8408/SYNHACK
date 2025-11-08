@@ -1,7 +1,11 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import { BookOpen, Users } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
+import { progressService } from '@/services/progressService';
 
 interface CourseCardProps {
   course: {
@@ -15,6 +19,18 @@ interface CourseCardProps {
 }
 
 export const CourseCard = ({ course }: CourseCardProps) => {
+  const { user } = useAuth();
+  const [progress, setProgress] = useState<any>(null);
+  const isStudent = user?.role === 'student';
+
+  useEffect(() => {
+    if (isStudent) {
+      progressService.getProgress(course._id)
+        .then(setProgress)
+        .catch(() => setProgress(null));
+    }
+  }, [course._id, isStudent]);
+
   return (
     <Link to={`/course/${course._id}`}>
       <Card className="group transition-all duration-300 hover:shadow-elegant hover:scale-105 border-border bg-card">
@@ -32,14 +48,26 @@ export const CourseCard = ({ course }: CourseCardProps) => {
             {course.department} • Semester {course.semester}
           </CardDescription>
         </CardHeader>
-        {course.studentIds && (
-          <CardContent>
+        <CardContent>
+          {isStudent && progress && (
+            <div className="space-y-2 mb-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Progress</span>
+                <Badge variant="secondary">{progress.percentage}%</Badge>
+              </div>
+              <Progress value={progress.percentage} className="h-2" />
+              <p className="text-xs text-muted-foreground">
+                {progress.completedCount} of {progress.totalModules} modules completed
+              </p>
+            </div>
+          )}
+          {course.studentIds && !isStudent && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Users className="h-4 w-4" />
               <span>{course.studentIds.length} students enrolled</span>
             </div>
-          </CardContent>
-        )}
+          )}
+        </CardContent>
       </Card>
     </Link>
   );

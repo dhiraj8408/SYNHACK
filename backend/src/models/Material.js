@@ -8,6 +8,7 @@ const materialSchema = new mongoose.Schema(
       required: false, // Optional since we identify by uploadedBy
     },
 
+    module: { type: String, required: true }, // e.g., "Module 1", "Module 2"
     moduleTitle: { type: String, required: true },
 
     type: {
