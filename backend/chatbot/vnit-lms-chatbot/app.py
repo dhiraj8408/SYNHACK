@@ -4,6 +4,8 @@ import threading
 import requests
 import fitz  # PyMuPDF
 import io
+import mimetypes
+import zipfile
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import chromadb
@@ -11,6 +13,11 @@ from sentence_transformers import SentenceTransformer
 from groq import Groq
 from dotenv import load_dotenv
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from pptx import Presentation
+from PIL import Image
+import easyocr
+import numpy as np
+import cv2
 
 # --- 1. LOAD ENVIRONMENT VARIABLES ---
 print("Loading environment variables...")
@@ -51,6 +58,12 @@ try:
     embedding_model = SentenceTransformer(EMBEDDING_MODEL)
     print(f"Embedding model '{EMBEDDING_MODEL}' loaded.")
     
+    # Initialize EasyOCR reader (supports English by default)
+    # This will download models on first run - takes a few minutes
+    print("Initializing EasyOCR (this may take a minute on first run)...")
+    ocr_reader = easyocr.Reader(['en'], gpu=False)  # Set gpu=True if you have CUDA
+    print("EasyOCR initialized successfully.")
+    
     db_client = chromadb.PersistentClient(path=DB_PATH)
     collection = db_client.get_or_create_collection(name=COLLECTION_NAME)
     print(f"Connected to ChromaDB at '{DB_PATH}'. Collection '{COLLECTION_NAME}' loaded.")
@@ -79,13 +92,151 @@ def get_google_drive_file_id(url):
         print(f"Error parsing Google Drive URL: {e}")
         return None
 
+def detect_file_type(content, content_type=None, filename=None):
+    """
+    Detects file type from content, content-type header, or filename.
+    Returns: 'pdf', 'ppt', 'pptx', 'image', or None
+    """
+    # Check content-type header first
+    if content_type:
+        if 'pdf' in content_type.lower():
+            return 'pdf'
+        if 'presentation' in content_type.lower() or 'powerpoint' in content_type.lower():
+            return 'pptx'
+        if 'image' in content_type.lower():
+            return 'image'
+    
+    # Check filename extension
+    if filename:
+        ext = filename.lower().split('.')[-1] if '.' in filename else ''
+        if ext in ['pdf']:
+            return 'pdf'
+        if ext in ['ppt', 'pptx']:
+            return 'pptx'
+        if ext in ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'webp']:
+            return 'image'
+    
+    # Check magic bytes (file signatures)
+    if content:
+        # PDF: starts with %PDF
+        if content[:4] == b'%PDF':
+            return 'pdf'
+        # PPTX: ZIP archive with specific structure (starts with PK)
+        if content[:2] == b'PK':
+            # Check if it's a PPTX by looking for specific files inside
+            try:
+                with zipfile.ZipFile(io.BytesIO(content)) as zip_file:
+                    if 'ppt/presentation.xml' in zip_file.namelist():
+                        return 'pptx'
+            except:
+                pass
+        # Images: Check common image signatures
+        if content[:2] == b'\xff\xd8':  # JPEG
+            return 'image'
+        if content[:8] == b'\x89PNG\r\n\x1a\n':  # PNG
+            return 'image'
+        if content[:6] in [b'GIF87a', b'GIF89a']:  # GIF
+            return 'image'
+        if content[:2] == b'BM':  # BMP
+            return 'image'
+    
+    return None
+
+def extract_text_from_pdf(content):
+    """Extracts text from PDF. Uses OCR if text extraction fails."""
+    full_text = ""
+    try:
+        with io.BytesIO(content) as pdf_stream:
+            with fitz.open(stream=pdf_stream, filetype="pdf") as doc:
+                for page_num, page in enumerate(doc):
+                    # Try direct text extraction first
+                    page_text = page.get_text()
+                    if page_text.strip():
+                        full_text += f"\n--- Page {page_num + 1} ---\n" + page_text
+                    else:
+                        # If no text, it's likely a scanned/image-based PDF - use OCR
+                        print(f"[PDF] Page {page_num + 1} has no text, attempting OCR...")
+                        try:
+                            # Convert PDF page to image
+                            pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))  # 2x zoom for better OCR
+                            img_data = pix.tobytes("png")
+                            img = Image.open(io.BytesIO(img_data))
+                            img_array = np.array(img)
+                            
+                            # Perform OCR
+                            ocr_results = ocr_reader.readtext(img_array)
+                            page_text = "\n".join([result[1] for result in ocr_results])
+                            if page_text.strip():
+                                full_text += f"\n--- Page {page_num + 1} (OCR) ---\n" + page_text
+                        except Exception as ocr_error:
+                            print(f"[PDF] OCR failed for page {page_num + 1}: {ocr_error}")
+    except Exception as e:
+        print(f"[PDF] Error extracting text from PDF: {e}")
+        return None
+    return full_text.strip()
+
+def extract_text_from_ppt(content):
+    """Extracts text from PowerPoint presentation."""
+    full_text = ""
+    try:
+        with io.BytesIO(content) as ppt_stream:
+            prs = Presentation(ppt_stream)
+            for slide_num, slide in enumerate(prs.slides):
+                slide_text = f"\n--- Slide {slide_num + 1} ---\n"
+                # Extract text from all shapes in the slide
+                for shape in slide.shapes:
+                    if hasattr(shape, "text") and shape.text:
+                        slide_text += shape.text + "\n"
+                    # Also check for text in tables
+                    if hasattr(shape, "table"):
+                        for row in shape.table.rows:
+                            for cell in row.cells:
+                                if cell.text:
+                                    slide_text += cell.text + " "
+                        slide_text += "\n"
+                full_text += slide_text
+    except Exception as e:
+        print(f"[PPT] Error extracting text from PPT: {e}")
+        return None
+    return full_text.strip()
+
+def extract_text_from_image(content):
+    """Extracts text from image using OCR (supports handwritten notes)."""
+    try:
+        # Load image
+        img = Image.open(io.BytesIO(content))
+        img_array = np.array(img)
+        
+        # Convert to RGB if needed (EasyOCR expects RGB)
+        if len(img_array.shape) == 2:  # Grayscale
+            img_array = cv2.cvtColor(img_array, cv2.COLOR_GRAY2RGB)
+        elif img_array.shape[2] == 4:  # RGBA
+            img_array = cv2.cvtColor(img_array, cv2.COLOR_RGBA2RGB)
+        
+        # Perform OCR
+        print("[Image] Performing OCR...")
+        ocr_results = ocr_reader.readtext(img_array)
+        
+        # Combine all detected text
+        full_text = "\n".join([result[1] for result in ocr_results])
+        
+        if not full_text.strip():
+            print("[Image] No text detected in image.")
+            return None
+        
+        return full_text.strip()
+    except Exception as e:
+        print(f"[Image] Error extracting text from image: {e}")
+        return None
+
 def process_drive_link(drive_url):
     """
     The full background task:
-    1. Downloads the PDF from Google Drive.
-    2. Extracts text.
-    3. Chunks the text.
-    4. Embeds and stores in ChromaDB.
+    1. Downloads file from Google Drive.
+    2. Detects file type (PDF, PPT, image, etc.)
+    3. Extracts text (with OCR for images and scanned PDFs).
+    4. Chunks the text.
+    5. Embeds and stores in ChromaDB.
     """
     print(f"[Background Ingest] Starting task for: {drive_url}")
     
@@ -107,8 +258,7 @@ def process_drive_link(drive_url):
             print("[Background Ingest] Large file. Following confirmation redirect...")
             response = requests.get(download_url, cookies=response.cookies)
 
-        # --- MODIFIED SECTION START ---
-        # Check if the download *failed*. A 200 status is good enough.
+        # Check if the download failed
         if response.status_code != 200:
             print(f"[Background Ingest] Error: Failed to download file. Status: {response.status_code}")
             print("Please ensure the link is public ('Anyone with the link').")
@@ -119,29 +269,39 @@ def process_drive_link(drive_url):
             print("[Background Ingest] Error: Downloaded file is empty.")
             return
 
-        print(f"[Background Ingest] File downloaded ({len(response.content)} bytes). Content-Type: {response.headers.get('content-type')}")
+        content_type = response.headers.get('content-type', '')
+        print(f"[Background Ingest] File downloaded ({len(response.content)} bytes). Content-Type: {content_type}")
 
-        # 3. Extract text from the PDF *in memory*
-        print("[Background Ingest] Attempting to open as PDF...")
-        full_text = ""
-        try:
-            # Use io.BytesIO to treat the downloaded content as a file
-            with io.BytesIO(response.content) as pdf_stream:
-                with fitz.open(stream=pdf_stream, filetype="pdf") as doc:
-                    for page in doc:
-                        full_text += page.get_text()
-        except Exception as e:
-            # This catch block is our new "is it a PDF?" check
-            print(f"[Background Ingest] Error: Failed to open file as PDF. It might not be a PDF. Error: {e}")
+        # 3. Detect file type
+        file_type = detect_file_type(response.content, content_type)
+        if not file_type:
+            print("[Background Ingest] Error: Could not detect file type. Supported: PDF, PPT/PPTX, Images (JPG, PNG, etc.)")
             return
-        # --- MODIFIED SECTION END ---
         
-        if not full_text.strip():
-            print("[Background Ingest] Error: No text extracted from PDF (file might be image-based or empty).")
-            return  # <-- I'll add a 'return' here just in case
+        print(f"[Background Ingest] Detected file type: {file_type}")
 
-        # --- THIS IS THE MISSING BLOCK ---
-        # 4. Chunk the text
+        # 4. Extract text based on file type
+        full_text = None
+        if file_type == 'pdf':
+            print("[Background Ingest] Extracting text from PDF...")
+            full_text = extract_text_from_pdf(response.content)
+        elif file_type == 'pptx':
+            print("[Background Ingest] Extracting text from PowerPoint...")
+            full_text = extract_text_from_ppt(response.content)
+        elif file_type == 'image':
+            print("[Background Ingest] Extracting text from image using OCR...")
+            full_text = extract_text_from_image(response.content)
+        else:
+            print(f"[Background Ingest] Error: Unsupported file type: {file_type}")
+            return
+        
+        if not full_text or not full_text.strip():
+            print("[Background Ingest] Error: No text extracted from file.")
+            return
+
+        print(f"[Background Ingest] Extracted {len(full_text)} characters of text.")
+
+        # 5. Chunk the text
         print("[Background Ingest] Chunking text...")
         text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=CHUNK_SIZE,
@@ -154,14 +314,13 @@ def process_drive_link(drive_url):
         if not text_chunks:
             print("[Background Ingest] Error: Text could not be split into chunks.")
             return
-        # --- END OF MISSING BLOCK ---
 
-        # 5. Embed and Store
+        # 6. Embed and Store
         print(f"[Background Ingest] Generating embeddings for {len(text_chunks)} chunks...")
         embeddings = embedding_model.encode(text_chunks, show_progress_bar=True)
         
         # Create unique IDs based on file ID and chunk index
-        ids = [f"drive_{file_id}_chunk_{i}" for i in range(len(text_chunks))]
+        ids = [f"drive_{file_id}_{file_type}_chunk_{i}" for i in range(len(text_chunks))]
         
         print(f"[Background Ingest] Adding {len(ids)} chunks to ChromaDB...")
         collection.add(
@@ -170,10 +329,12 @@ def process_drive_link(drive_url):
             ids=ids
         )
         
-        print(f"--- [Background Ingest] COMPLETED: Ingestion for file {file_id} ---")
+        print(f"--- [Background Ingest] COMPLETED: Ingestion for {file_type} file {file_id} ---")
 
     except Exception as e:
         print(f"--- [Background Ingest] FAILED: {e} ---")
+        import traceback
+        traceback.print_exc()
 
 
 # --- 7. API ENDPOINT: /chatbot-api/ingest (For Professors) ---
