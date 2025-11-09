@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: frontend
+    env: node
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      # Add your environment variables here
+      # - key: VITE_BACKEND_API_URL
+      #   value: https://your-backend.onrender.com
+
