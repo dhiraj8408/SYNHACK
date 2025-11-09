@@ -4,17 +4,21 @@ export const createAnnouncement = async (req, res) => {
   try {
     const { courseId, title, message } = req.body;
 
-    if (!courseId || !title || !message) {
+    if (!title || !message) {
       return res.status(400).json({ 
-        message: "courseId, title, and message are required" 
+        message: "title and message are required" 
       });
     }
 
+    // If no courseId provided, it's a global announcement
+    const isGlobal = !courseId;
+
     const announcement = await Announcement.create({
-      courseId,
+      courseId: courseId || null,
       title,
       message,
       createdBy: req.user.id,
+      isGlobal: isGlobal,
     });
 
     const populated = await Announcement.findById(announcement._id)
@@ -29,15 +33,23 @@ export const createAnnouncement = async (req, res) => {
 
 export const getAnnouncements = async (req, res) => {
   try {
-    const { courseId } = req.query;
+    const { courseId, global } = req.query;
 
-    if (!courseId) {
-      return res.status(400).json({ 
-        message: "courseId parameter is required" 
-      });
+    let query = {};
+    
+    if (global === 'true') {
+      // Get only global announcements (no courseId)
+      query = { isGlobal: true, courseId: null };
+    } else if (courseId) {
+      // Get course-specific announcements
+      query = { courseId };
+    } else {
+      // Get all announcements (both global and course-specific)
+      // This is useful for admin views
+      query = {};
     }
 
-    const announcements = await Announcement.find({ courseId })
+    const announcements = await Announcement.find(query)
       .populate("createdBy", "name email")
       .populate("courseId", "courseName courseCode")
       .sort({ createdAt: -1 });

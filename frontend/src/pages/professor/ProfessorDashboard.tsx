@@ -2,11 +2,24 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { courseService } from '@/services/courseService';
 import { forumService } from '@/services/forumService';
+import { announcementService } from '@/services/announcementService';
 import { CourseCard } from '@/components/CourseCard';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { BookOpen, Users, FileText, MessageSquare, ArrowRight } from 'lucide-react';
+import { BookOpen, Users, FileText, MessageSquare, ArrowRight, Megaphone, Plus } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function ProfessorDashboard() {
@@ -14,6 +27,9 @@ export default function ProfessorDashboard() {
   const [courses, setCourses] = useState([]);
   const [recentThreads, setRecentThreads] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [formData, setFormData] = useState({ title: '', message: '' });
+  const [submitting, setSubmitting] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -53,6 +69,36 @@ export default function ProfessorDashboard() {
     sum + (course.studentIds?.length || 0), 0
   );
 
+  const handleCreateAnnouncement = async () => {
+    if (!formData.title.trim() || !formData.message.trim()) {
+      toast({
+        title: 'Error',
+        description: 'Please fill in both title and message',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      await announcementService.createAnnouncement(formData.title, formData.message);
+      toast({
+        title: 'Success',
+        description: 'Announcement created successfully',
+      });
+      setFormData({ title: '', message: '' });
+      setCreateDialogOpen(false);
+    } catch (error: any) {
+      toast({
+        title: 'Error creating announcement',
+        description: error.response?.data?.message || 'Failed to create announcement',
+        variant: 'destructive',
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8">
@@ -60,6 +106,74 @@ export default function ProfessorDashboard() {
           <h1 className="text-4xl font-bold mb-2">Professor Dashboard</h1>
           <p className="text-muted-foreground">Manage your courses and students</p>
         </div>
+
+        {/* Create Announcement */}
+        <Card className="border-border mb-8 bg-primary/5 border-primary/20">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Megaphone className="h-5 w-5" />
+                  Global Announcements
+                </CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Create announcements visible to all students
+                </p>
+              </div>
+              <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Announcement
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>Create Global Announcement</DialogTitle>
+                    <DialogDescription>
+                      This announcement will be visible to all students regardless of course enrollment.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 mt-4">
+                    <div>
+                      <Label htmlFor="title">Title *</Label>
+                      <Input
+                        id="title"
+                        value={formData.title}
+                        onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                        placeholder="Enter announcement title"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="message">Message *</Label>
+                      <Textarea
+                        id="message"
+                        value={formData.message}
+                        onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                        placeholder="Enter announcement message"
+                        rows={6}
+                      />
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setCreateDialogOpen(false);
+                          setFormData({ title: '', message: '' });
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button onClick={handleCreateAnnouncement} disabled={submitting}>
+                        {submitting ? 'Creating...' : 'Create Announcement'}
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+          </CardHeader>
+        </Card>
 
         {/* Stats */}
         <div className="grid md:grid-cols-3 gap-4 mb-8">

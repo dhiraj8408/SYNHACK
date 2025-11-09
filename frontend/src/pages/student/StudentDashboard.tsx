@@ -2,18 +2,21 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { courseService } from '@/services/courseService';
 import { forumService } from '@/services/forumService';
+import { announcementService } from '@/services/announcementService';
 import { CourseCard } from '@/components/CourseCard';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
-import { BookOpen, MessageSquare, Brain, ArrowRight, Code2 } from 'lucide-react';
+import { BookOpen, MessageSquare, Brain, ArrowRight, Code2, Megaphone, Calendar } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function StudentDashboard() {
   const { user } = useAuth();
   const [courses, setCourses] = useState([]);
   const [recentThreads, setRecentThreads] = useState<any[]>([]);
+  const [announcements, setAnnouncements] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
@@ -36,6 +39,10 @@ export default function StudentDashboard() {
           .slice(0, 5);
         
         setRecentThreads(sorted);
+
+        // Fetch global announcements
+        const announcementsData = await announcementService.getAnnouncements();
+        setAnnouncements(announcementsData);
       } catch (error: any) {
         toast({
           title: 'Error loading data',
@@ -120,6 +127,55 @@ export default function StudentDashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Announcements */}
+        {announcements.length > 0 && (
+          <Card className="border-border mb-8">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Megaphone className="h-5 w-5" />
+                  Announcements
+                </CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {announcements.slice(0, 5).map((announcement: any) => (
+                  <div
+                    key={announcement._id}
+                    className="p-4 border rounded-lg bg-primary/5 border-primary/20"
+                  >
+                    <div className="flex items-start gap-3">
+                      <Avatar className="h-10 w-10">
+                        <AvatarFallback>
+                          {announcement.createdBy?.name?.charAt(0)?.toUpperCase() || 'A'}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h4 className="font-semibold text-sm">{announcement.title}</h4>
+                          <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/20">
+                            Global
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground mb-2 whitespace-pre-wrap">
+                          {announcement.message}
+                        </p>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <Calendar className="h-3 w-3" />
+                          <span>{new Date(announcement.createdAt).toLocaleString()}</span>
+                          <span>•</span>
+                          <span>{announcement.createdBy?.name || 'Unknown'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Recent Forum Activity */}
         {recentThreads.length > 0 && (

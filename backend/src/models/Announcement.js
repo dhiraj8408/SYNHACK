@@ -5,7 +5,7 @@ const announcementSchema = new mongoose.Schema(
     courseId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Course",
-      required: true,
+      required: false, // Optional - null means global announcement
     },
     title: {
       type: String,
@@ -19,6 +19,10 @@ const announcementSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
+    },
+    isGlobal: {
+      type: Boolean,
+      default: false, // True for announcements visible to all students
     },
   },
   { timestamps: true }

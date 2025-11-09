@@ -67,7 +67,7 @@ export default function AnnouncementsTab({ courseId }: AnnouncementsTabProps) {
 
       try {
         setLoading(true);
-        const data = await announcementService.getAnnouncements(courseId);
+        const data = await announcementService.getAnnouncements(courseId); // Pass courseId for course-specific announcements
         setAnnouncements(data);
       } catch (error: any) {
         toast({
@@ -96,9 +96,9 @@ export default function AnnouncementsTab({ courseId }: AnnouncementsTabProps) {
     setSubmitting(true);
     try {
       const newAnnouncement = await announcementService.createAnnouncement(
-        courseId,
         formData.title,
-        formData.message
+        formData.message,
+        courseId
       );
 
       setAnnouncements([newAnnouncement, ...announcements]);

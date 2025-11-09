@@ -1,17 +1,25 @@
 import apiClient from './apiClient';
 
 export const announcementService = {
-  createAnnouncement: async (courseId: string, title: string, message: string) => {
+  createAnnouncement: async (title: string, message: string, courseId?: string) => {
     const response = await apiClient.post('/api/announcements', {
-      courseId,
       title,
       message,
+      ...(courseId && { courseId }), // Only include courseId if provided
     });
     return response.data;
   },
 
-  getAnnouncements: async (courseId: string) => {
-    const response = await apiClient.get(`/api/announcements?courseId=${courseId}`);
+  getAnnouncements: async (courseId?: string) => {
+    const url = courseId 
+      ? `/api/announcements?courseId=${courseId}`
+      : '/api/announcements?global=true';
+    const response = await apiClient.get(url);
+    return response.data;
+  },
+
+  getAllAnnouncements: async () => {
+    const response = await apiClient.get('/api/announcements');
     return response.data;
   },
 
