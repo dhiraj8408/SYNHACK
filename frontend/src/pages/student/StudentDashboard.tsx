@@ -9,7 +9,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useToast } from '@/hooks/use-toast';
-import { BookOpen, MessageSquare, Brain, ArrowRight, Code2, Megaphone, Calendar } from 'lucide-react';
+import { BookOpen, MessageSquare, Brain, ArrowRight, Megaphone, Calendar } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function StudentDashboard() {
@@ -77,22 +77,6 @@ export default function StudentDashboard() {
                   <div>
                     <h3 className="font-semibold">AI Chatbot</h3>
                     <p className="text-sm text-muted-foreground">Ask questions</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
-
-          <Link to="/student/coding-practice">
-            <Card className="border-border hover:shadow-elegant transition-all cursor-pointer">
-              <CardContent className="p-6">
-                <div className="flex items-center gap-4">
-                  <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <Code2 className="h-6 w-6 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold">Coding Practice</h3>
-                    <p className="text-sm text-muted-foreground">Practice coding</p>
                   </div>
                 </div>
               </CardContent>

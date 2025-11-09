@@ -36,6 +36,7 @@ import { useToast } from '@/hooks/use-toast';
 import { adminService } from '@/services/adminService';
 import { Users, BookOpen, Upload, Edit, Key, Power, Search, X, FileText } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface User {
   _id: string;
@@ -74,6 +75,7 @@ export default function AdminDashboard() {
     semester: '',
     department: '',
     professorEmail: '',
+    enableCodingPlatform: false,
   });
   const [courseStudentsFile, setCourseStudentsFile] = useState<File | null>(null);
 
@@ -192,7 +194,7 @@ export default function AdminDashboard() {
         title: 'Course created successfully!',
         description: result.enrollment ? `Enrolled ${result.enrollment.enrolled} students` : undefined,
       });
-      setCourseData({ courseCode: '', courseName: '', semester: '', department: '', professorEmail: '' });
+      setCourseData({ courseCode: '', courseName: '', semester: '', department: '', professorEmail: '', enableCodingPlatform: false });
       setCourseStudentsFile(null);
       loadCourses();
     } catch (error: any) {
@@ -671,6 +673,22 @@ export default function AdminDashboard() {
                           }}
                         />
                       )}
+                    </div>
+
+                    <div className="flex items-center space-x-2 pt-2">
+                      <Checkbox
+                        id="enableCodingPlatform"
+                        checked={courseData.enableCodingPlatform}
+                        onCheckedChange={(checked) =>
+                          setCourseData({ ...courseData, enableCodingPlatform: checked === true })
+                        }
+                      />
+                      <Label
+                        htmlFor="enableCodingPlatform"
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                      >
+                        Enable Coding Platform for this course
+                      </Label>
                     </div>
                   </div>
 

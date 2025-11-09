@@ -101,7 +101,7 @@ export const bulkCreateUsers = async (req, res) => {
 
 export const createCourse = async (req, res) => {
   try {
-    const { courseCode, courseName, semester, department, professorEmail, studentEmails } = req.body;
+    const { courseCode, courseName, semester, department, professorEmail, studentEmails, enableCodingPlatform } = req.body;
 
     // Find professor by email
     let professorId = null;
@@ -120,6 +120,7 @@ export const createCourse = async (req, res) => {
       semester,
       department,
       professorId,
+      enableCodingPlatform: enableCodingPlatform === true || enableCodingPlatform === 'true',
     });
 
     // Enroll students if provided via CSV file
