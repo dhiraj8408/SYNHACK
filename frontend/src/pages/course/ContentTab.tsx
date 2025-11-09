@@ -61,6 +61,7 @@ export default function ContentTab({ courseId }: ContentTabProps) {
         type: "pdf",
         file: null as File | null,
         link: "",
+        driveLinks: [] as string[],
     });
     const [uploading, setUploading] = useState(false);
     const [selectedMaterial, setSelectedMaterial] = useState<any>(null);
@@ -131,38 +132,97 @@ export default function ContentTab({ courseId }: ContentTabProps) {
             return;
         }
 
-        if (uploadType === "link" && !uploadData.link) {
-            toast({
-                title: "Validation Error",
-                description: "Please enter a link",
-                variant: "destructive",
-            });
-            return;
+        if (uploadType === "link") {
+            // Check if we have drive links or regular link
+            const hasDriveLinks = uploadData.driveLinks.length > 0;
+            const hasRegularLink = uploadData.link.trim() !== "";
+            
+            if (!hasDriveLinks && !hasRegularLink) {
+                toast({
+                    title: "Validation Error",
+                    description: "Please add at least one link",
+                    variant: "destructive",
+                });
+                return;
+            }
         }
 
         setUploading(true);
         try {
-            const formData = new FormData();
-            formData.append("module", uploadData.module);
-            formData.append("moduleTitle", uploadData.moduleTitle);
-            formData.append("type", uploadData.type);
-            formData.append("courseId", courseId);
+            // Process multiple drive links if present
+            if (uploadType === "link" && uploadData.driveLinks.length > 0) {
+                const linksToProcess = uploadData.driveLinks.filter(link => link.trim() !== "");
+                
+                if (linksToProcess.length === 0) {
+                    toast({
+                        title: "Validation Error",
+                        description: "Please add at least one valid drive link",
+                        variant: "destructive",
+                    });
+                    setUploading(false);
+                    return;
+                }
 
-            if (uploadType === "file" && uploadData.file) {
-                formData.append("file", uploadData.file);
-            } else if (uploadType === "link") {
+                // Upload each drive link as a separate material
+                for (const driveLink of linksToProcess) {
+                    const formData = new FormData();
+                    formData.append("module", uploadData.module);
+                    formData.append("moduleTitle", uploadData.moduleTitle);
+                    formData.append("type", uploadData.type);
+                    formData.append("courseId", courseId);
+                    formData.append("link", driveLink.trim());
+
+                    await materialService.uploadMaterial(formData);
+                    
+                    // Ingest each drive link into RAG system
+                    if (driveLink.includes("drive.google.com")) {
+                        try {
+                            await ingestDocuments({ drive_link: driveLink.trim() });
+                        } catch (ingestError) {
+                            console.error(`Failed to ingest ${driveLink}:`, ingestError);
+                            // Continue with other links even if one fails
+                        }
+                    }
+                }
+
+                toast({
+                    title: "Success",
+                    description: `${linksToProcess.length} material(s) uploaded and being ingested`,
+                });
+            } else if (uploadType === "link" && uploadData.link.trim() !== "") {
+                // Handle single regular link (backward compatibility)
+                const formData = new FormData();
+                formData.append("module", uploadData.module);
+                formData.append("moduleTitle", uploadData.moduleTitle);
+                formData.append("type", uploadData.type);
+                formData.append("courseId", courseId);
                 formData.append("link", uploadData.link);
-            }
 
-            await materialService.uploadMaterial(formData);
-            if (uploadType === "link" && uploadData.link.includes("drive.google.com")) {
-                await ingestDocuments({ drive_link: uploadData.link });
-            }
+                await materialService.uploadMaterial(formData);
+                if (uploadData.link.includes("drive.google.com")) {
+                    await ingestDocuments({ drive_link: uploadData.link });
+                }
 
-            toast({
-                title: "Success",
-                description: "Material uploaded successfully",
-            });
+                toast({
+                    title: "Success",
+                    description: "Material uploaded successfully",
+                });
+            } else if (uploadType === "file" && uploadData.file) {
+                // Handle file upload
+                const formData = new FormData();
+                formData.append("module", uploadData.module);
+                formData.append("moduleTitle", uploadData.moduleTitle);
+                formData.append("type", uploadData.type);
+                formData.append("courseId", courseId);
+                formData.append("file", uploadData.file);
+
+                await materialService.uploadMaterial(formData);
+
+                toast({
+                    title: "Success",
+                    description: "Material uploaded successfully",
+                });
+            }
 
             // Reset form
             setUploadData({
@@ -171,6 +231,7 @@ export default function ContentTab({ courseId }: ContentTabProps) {
                 type: "pdf",
                 file: null,
                 link: "",
+                driveLinks: [],
             });
             setUploadDialogOpen(false);
 
@@ -416,9 +477,16 @@ export default function ContentTab({ courseId }: ContentTabProps) {
                                                             ? "default"
                                                             : "outline"
                                                     }
-                                                    onClick={() =>
-                                                        setUploadType("link")
-                                                    }
+                                                    onClick={() => {
+                                                        setUploadType("link");
+                                                        // Initialize with one empty drive link if none exist
+                                                        if (uploadData.driveLinks.length === 0) {
+                                                            setUploadData({
+                                                                ...uploadData,
+                                                                driveLinks: [""],
+                                                            });
+                                                        }
+                                                    }}
                                                     className="flex-1"
                                                 >
                                                     <LinkIcon className="h-4 w-4 mr-2" />
@@ -473,23 +541,85 @@ export default function ContentTab({ courseId }: ContentTabProps) {
                                                 )}
                                             </div>
                                         ) : (
-                                            <div className="space-y-2">
-                                                <Label htmlFor="link">
-                                                    Link URL
-                                                </Label>
-                                                <Input
-                                                    id="link"
-                                                    type="url"
-                                                    placeholder="https://example.com/material"
-                                                    value={uploadData.link}
-                                                    onChange={(e) =>
-                                                        setUploadData({
-                                                            ...uploadData,
-                                                            link: e.target
-                                                                .value,
-                                                        })
-                                                    }
-                                                />
+                                            <div className="space-y-4">
+                                                <div className="space-y-2">
+                                                    <Label>
+                                                        Google Drive Links
+                                                    </Label>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        Add multiple Google Drive links for this module. Each link will be uploaded and ingested into the chatbot.
+                                                    </p>
+                                                    <div className="space-y-2">
+                                                        {uploadData.driveLinks.map((link, index) => (
+                                                            <div key={index} className="flex gap-2">
+                                                                <Input
+                                                                    type="url"
+                                                                    placeholder="https://drive.google.com/file/d/..."
+                                                                    value={link}
+                                                                    onChange={(e) => {
+                                                                        const newLinks = [...uploadData.driveLinks];
+                                                                        newLinks[index] = e.target.value;
+                                                                        setUploadData({
+                                                                            ...uploadData,
+                                                                            driveLinks: newLinks,
+                                                                        });
+                                                                    }}
+                                                                />
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    onClick={() => {
+                                                                        const newLinks = uploadData.driveLinks.filter((_, i) => i !== index);
+                                                                        setUploadData({
+                                                                            ...uploadData,
+                                                                            driveLinks: newLinks,
+                                                                        });
+                                                                    }}
+                                                                    className="flex-shrink-0"
+                                                                >
+                                                                    <X className="h-4 w-4" />
+                                                                </Button>
+                                                            </div>
+                                                        ))}
+                                                        <Button
+                                                            type="button"
+                                                            variant="outline"
+                                                            onClick={() => {
+                                                                setUploadData({
+                                                                    ...uploadData,
+                                                                    driveLinks: [...uploadData.driveLinks, ""],
+                                                                });
+                                                            }}
+                                                            className="w-full"
+                                                        >
+                                                            <LinkIcon className="h-4 w-4 mr-2" />
+                                                            Add Another Drive Link
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                                
+                                                {/* Keep single link option for backward compatibility */}
+                                                <div className="space-y-2 border-t pt-4">
+                                                    <Label htmlFor="link">
+                                                        Or Single Link URL (Optional)
+                                                    </Label>
+                                                    <Input
+                                                        id="link"
+                                                        type="url"
+                                                        placeholder="https://example.com/material"
+                                                        value={uploadData.link}
+                                                        onChange={(e) =>
+                                                            setUploadData({
+                                                                ...uploadData,
+                                                                link: e.target.value,
+                                                            })
+                                                        }
+                                                    />
+                                                    <p className="text-xs text-muted-foreground">
+                                                        Use this for non-Google Drive links
+                                                    </p>
+                                                </div>
                                             </div>
                                         )}
 
