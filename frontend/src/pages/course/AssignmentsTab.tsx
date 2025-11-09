@@ -562,18 +562,19 @@ export default function AssignmentsTab({ courseId }: AssignmentsTabProps) {
                         {!isPastDue(selectedAssignment.dueDate) ? (
                           <form onSubmit={handleSubmitAssignment} className="space-y-4 p-4 border rounded-lg bg-muted/30">
                             <div>
-                              <Label htmlFor="submissionFile" className="text-base font-semibold mb-2 block">
-                                Upload Your Solution *
+                              <Label htmlFor="submissionDriveLink" className="text-base font-semibold mb-2 block">
+                                Google Drive Link to Your Solution *
                               </Label>
                               <Input 
-                                id="submissionFile" 
-                                name="file" 
-                                type="file" 
+                                id="submissionDriveLink" 
+                                name="submissionDriveLink" 
+                                type="url" 
+                                placeholder="https://drive.google.com/file/d/..."
                                 required 
-                                className="cursor-pointer"
+                                className="cursor-text"
                               />
                               <p className="text-xs text-muted-foreground mt-1">
-                                Accepted formats: PDF, DOC, DOCX, ZIP, etc. (Max 50MB)
+                                Paste your Google Drive link here. Make sure the file is set to "Anyone with the link can view"
                               </p>
                             </div>
                             <Button type="submit" className="w-full">
