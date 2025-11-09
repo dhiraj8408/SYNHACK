@@ -21,5 +21,13 @@ export const progressService = {
     });
     return response.data;
   },
+
+  markMaterialComplete: async (courseId: string, materialId: string) => {
+    const response = await apiClient.post('/api/progress/material/complete', {
+      courseId,
+      materialId,
+    });
+    return response.data;
+  },
 };
 

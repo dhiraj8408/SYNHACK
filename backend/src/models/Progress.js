@@ -15,6 +15,7 @@ const progressSchema = new mongoose.Schema(
     },
 
     completedModules: [{ type: String }],
+    completedMaterials: [{ type: mongoose.Schema.Types.ObjectId, ref: "Material" }],
   },
   { timestamps: true }
 );

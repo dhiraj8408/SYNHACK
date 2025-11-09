@@ -725,6 +725,9 @@ export default function ContentTab({ courseId }: ContentTabProps) {
                                     fileUrl={selectedMaterial.fileUrl}
                                     fileName={selectedMaterial.moduleTitle}
                                     fileType={selectedMaterial.type}
+                                    materialId={selectedMaterial._id}
+                                    courseId={courseId}
+                                    isCompleted={progress?.completedMaterials?.includes(selectedMaterial._id)}
                                 />
                             </div>
                         </>

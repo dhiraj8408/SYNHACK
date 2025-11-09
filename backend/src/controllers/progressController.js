@@ -79,12 +79,16 @@ export const getProgress = async (req, res) => {
       ? Math.round((completedCount / totalModules) * 100) 
       : 0;
 
+    // Get completed materials
+    const completedMaterials = progress.completedMaterials || [];
+
     res.json({
       courseId,
       studentId,
       totalModules,
       completedCount,
       completedModules: allCompletedModules,
+      completedMaterials: completedMaterials.map(m => m.toString()),
       percentage,
       allModules: materials.sort(),
       moduleCompletion,
@@ -123,6 +127,7 @@ export const markModuleComplete = async (req, res) => {
         studentId,
         courseId,
         completedModules: [],
+        completedMaterials: [],
       });
     }
 
@@ -195,6 +200,56 @@ export const markModuleIncomplete = async (req, res) => {
       completedModules: progress.completedModules,
       percentage,
       message: "Module marked as incomplete",
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Mark a material as complete (for video completion tracking)
+export const markMaterialComplete = async (req, res) => {
+  try {
+    const { courseId, materialId } = req.body;
+    const studentId = req.user.id;
+
+    if (!courseId || !materialId) {
+      return res.status(400).json({ message: "courseId and materialId are required" });
+    }
+
+    // Verify the material exists in the course
+    const material = await Material.findOne({ _id: materialId, courseId });
+    if (!material) {
+      return res.status(404).json({ message: "Material not found in this course" });
+    }
+
+    // Get or create progress
+    let progress = await Progress.findOne({
+      studentId,
+      courseId,
+    });
+
+    if (!progress) {
+      progress = await Progress.create({
+        studentId,
+        courseId,
+        completedModules: [],
+        completedMaterials: [],
+      });
+    }
+
+    // Add material if not already completed
+    const materialObjectId = new mongoose.Types.ObjectId(materialId);
+    if (!progress.completedMaterials.some(m => m.toString() === materialId)) {
+      progress.completedMaterials.push(materialObjectId);
+      await progress.save();
+    }
+
+    res.json({
+      courseId,
+      studentId,
+      materialId,
+      completedMaterials: progress.completedMaterials.map(m => m.toString()),
+      message: "Material marked as complete",
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

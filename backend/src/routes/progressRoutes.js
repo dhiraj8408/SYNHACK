@@ -4,6 +4,7 @@ import {
   getProgress,
   markModuleComplete,
   markModuleIncomplete,
+  markMaterialComplete,
 } from "../controllers/progressController.js";
 
 const router = Router();
@@ -18,6 +19,9 @@ router.post("/complete", requireRole(["student"]), markModuleComplete);
 
 // Mark module as incomplete (students only)
 router.post("/incomplete", requireRole(["student"]), markModuleIncomplete);
+
+// Mark material as complete (students only) - for video completion tracking
+router.post("/material/complete", requireRole(["student"]), markMaterialComplete);
 
 export default router;
 

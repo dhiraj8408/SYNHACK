@@ -1,21 +1,28 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { AlertCircle, Play, FileText, Image as ImageIcon, Video, Download } from 'lucide-react';
+import { AlertCircle, Play, FileText, Image as ImageIcon, Video, Download, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { progressService } from '@/services/progressService';
+import { useToast } from '@/hooks/use-toast';
 
 interface MaterialViewerProps {
   fileUrl: string;
   fileName?: string;
   fileType?: string; // 'pdf', 'ppt', 'image', 'video', 'link', etc.
   className?: string;
+  materialId?: string; // For tracking completion
+  courseId?: string; // For tracking completion
+  isCompleted?: boolean; // Whether this material is already completed
 }
 
-export default function MaterialViewer({ fileUrl, fileName, fileType, className }: MaterialViewerProps) {
+export default function MaterialViewer({ fileUrl, fileName, fileType, className, materialId, courseId, isCompleted }: MaterialViewerProps) {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [detectedType, setDetectedType] = useState<string | null>(null);
+  const [completed, setCompleted] = useState(isCompleted || false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const isStudent = user?.role === 'student';
 
@@ -108,18 +115,59 @@ export default function MaterialViewer({ fileUrl, fileName, fileType, className 
     }
   };
 
-  // Handle video time update to prevent fast-forwarding for students
+  // Track video completion
+  useEffect(() => {
+    if (!isStudent || !videoRef.current || detectedType !== 'video' || !materialId || !courseId || completed) return;
+
+    const video = videoRef.current;
+
+    const handleVideoEnd = async () => {
+      if (completed) return;
+      
+      try {
+        await progressService.markMaterialComplete(courseId, materialId);
+        setCompleted(true);
+        toast({
+          title: 'Video Completed',
+          description: 'Great job! This video has been marked as completed.',
+        });
+      } catch (error) {
+        console.error('Error marking material as complete:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to mark video as completed',
+          variant: 'destructive',
+        });
+      }
+    };
+
+    video.addEventListener('ended', handleVideoEnd);
+
+    return () => {
+      video.removeEventListener('ended', handleVideoEnd);
+    };
+  }, [isStudent, detectedType, materialId, courseId, completed, toast]);
+
+  // Handle video time update to prevent fast-forwarding for students (but allow pause)
   useEffect(() => {
     if (!isStudent || !videoRef.current || detectedType !== 'video') return;
 
     const video = videoRef.current;
     let lastTime = 0;
+    let isPaused = false;
     let isUserSeeking = false;
 
     const handleTimeUpdate = () => {
-      if (isUserSeeking) return;
+      // Don't interfere if video is paused or user is seeking
+      if (isPaused || isUserSeeking) {
+        if (!isPaused) {
+          lastTime = video.currentTime;
+        }
+        return;
+      }
+      
       const currentTime = video.currentTime;
-      // If user tries to skip forward more than 2 seconds, reset to last valid position
+      // Allow normal playback (including pause), but prevent skipping forward more than 2 seconds
       if (currentTime > lastTime + 2) {
         video.currentTime = lastTime;
       } else {
@@ -127,9 +175,20 @@ export default function MaterialViewer({ fileUrl, fileName, fileType, className 
       }
     };
 
+    const handlePlay = () => {
+      isPaused = false;
+    };
+
+    const handlePause = () => {
+      isPaused = true;
+      // Update lastTime when paused so resume works correctly
+      lastTime = video.currentTime;
+    };
+
     const handleSeeking = () => {
       isUserSeeking = true;
       const currentTime = video.currentTime;
+      // Prevent seeking forward more than 2 seconds
       if (currentTime > lastTime + 2) {
         video.currentTime = lastTime;
       }
@@ -154,12 +213,16 @@ export default function MaterialViewer({ fileUrl, fileName, fileType, className 
     };
 
     video.addEventListener('timeupdate', handleTimeUpdate);
+    video.addEventListener('play', handlePlay);
+    video.addEventListener('pause', handlePause);
     video.addEventListener('seeking', handleSeeking);
     video.addEventListener('seeked', handleSeeked);
     video.addEventListener('contextmenu', handleContextMenu);
 
     return () => {
       video.removeEventListener('timeupdate', handleTimeUpdate);
+      video.removeEventListener('play', handlePlay);
+      video.removeEventListener('pause', handlePause);
       video.removeEventListener('seeking', handleSeeking);
       video.removeEventListener('seeked', handleSeeked);
       video.removeEventListener('contextmenu', handleContextMenu);
@@ -229,14 +292,22 @@ export default function MaterialViewer({ fileUrl, fileName, fileType, className 
           />
         </div>
         {fileName && (
-          <p className="text-sm text-muted-foreground flex items-center gap-2">
-            <Video className="h-4 w-4" />
-            {fileName}
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground flex items-center gap-2">
+              <Video className="h-4 w-4" />
+              {fileName}
+            </p>
+            {completed && (
+              <div className="flex items-center gap-2 text-green-600">
+                <CheckCircle2 className="h-4 w-4" />
+                <span className="text-xs font-medium">Completed</span>
+              </div>
+            )}
+          </div>
         )}
         {isStudent && (
           <p className="text-xs text-muted-foreground">
-            Note: Video controls are restricted for students
+            Note: Please watch the video to completion to mark it as complete.
           </p>
         )}
       </div>
@@ -261,14 +332,22 @@ export default function MaterialViewer({ fileUrl, fileName, fileType, className 
           />
         </div>
         {fileName && (
-          <p className="text-sm text-muted-foreground flex items-center gap-2">
-            <Video className="h-4 w-4" />
-            {fileName}
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground flex items-center gap-2">
+              <Video className="h-4 w-4" />
+              {fileName}
+            </p>
+            {completed && (
+              <div className="flex items-center gap-2 text-green-600">
+                <CheckCircle2 className="h-4 w-4" />
+                <span className="text-xs font-medium">Completed</span>
+              </div>
+            )}
+          </div>
         )}
         {isStudent && (
           <p className="text-xs text-muted-foreground">
-            Note: Video controls are restricted for students
+            Note: Please watch the video to completion to mark it as complete.
           </p>
         )}
       </div>
@@ -297,14 +376,22 @@ export default function MaterialViewer({ fileUrl, fileName, fileType, className 
           </video>
         </div>
         {fileName && (
-          <p className="text-sm text-muted-foreground flex items-center gap-2">
-            <Video className="h-4 w-4" />
-            {fileName}
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground flex items-center gap-2">
+              <Video className="h-4 w-4" />
+              {fileName}
+            </p>
+            {completed && (
+              <div className="flex items-center gap-2 text-green-600">
+                <CheckCircle2 className="h-4 w-4" />
+                <span className="text-xs font-medium">Completed</span>
+              </div>
+            )}
+          </div>
         )}
         {isStudent && (
           <p className="text-xs text-muted-foreground">
-            Note: Fast-forwarding and seeking are disabled for students
+            Note: You can pause the video, but fast-forwarding is disabled. Video will be marked as complete when finished.
           </p>
         )}
       </div>
