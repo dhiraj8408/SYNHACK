@@ -12,6 +12,13 @@ export default defineConfig(({ mode }) => ({
   preview: {
     host: "0.0.0.0",
     port: process.env.PORT ? parseInt(process.env.PORT) : 4173,
+    allowedHosts: [
+      "synhack-2.onrender.com",
+      ".onrender.com", // Allow all Render subdomains
+      "localhost",
+      "127.0.0.1",
+    ],
+    strictPort: false,
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {
