@@ -76,12 +76,47 @@ export const listAssignments = async (req, res) => {
 
 export const submitAssignment = async (req, res) => {
   try {
-    // Check for either file upload or Drive link
-    const fileUrl = req.body.fileUrl;
-    const file = req.file;
+    const files = [];
     
-    if (!fileUrl && !file) {
-      return res.status(400).json({ message: "Either a file upload or Google Drive link is required" });
+    // Handle multiple files from req.files (array) or req.file (single)
+    const uploadedFiles = req.files || (req.file ? [req.file] : []);
+    
+    // Process uploaded files
+    uploadedFiles.forEach((file) => {
+      files.push({
+        fileUrl: `/api/assignments/submissions/${file.filename}`,
+        fileName: file.originalname,
+        fileType: file.mimetype?.split('/')[1] || 'file',
+      });
+    });
+
+    // Handle multiple file URLs from body (for links)
+    if (req.body.fileUrls) {
+      const fileUrls = Array.isArray(req.body.fileUrls) ? req.body.fileUrls : [req.body.fileUrls];
+      const fileNames = Array.isArray(req.body.fileNames) ? req.body.fileNames : (req.body.fileNames ? [req.body.fileNames] : []);
+      const fileTypes = Array.isArray(req.body.fileTypes) ? req.body.fileTypes : (req.body.fileTypes ? [req.body.fileTypes] : []);
+      
+      fileUrls.forEach((url, index) => {
+        if (url && url.trim()) {
+          files.push({
+            fileUrl: url.trim(),
+            fileName: fileNames[index] || "Submission File",
+            fileType: fileTypes[index] || "link",
+          });
+        }
+      });
+    }
+
+    // Backward compatibility: Handle single fileUrl
+    let submissionUrl = null;
+    let fileName = null;
+    if (req.body.fileUrl && files.length === 0) {
+      submissionUrl = req.body.fileUrl;
+      fileName = req.body.fileName || "Submission from Google Drive";
+    }
+    
+    if (files.length === 0 && !submissionUrl) {
+      return res.status(400).json({ message: "Either file upload(s) or Google Drive link(s) are required" });
     }
 
     if (!req.body.assignmentId) {
@@ -114,31 +149,39 @@ export const submitAssignment = async (req, res) => {
       return res.status(400).json({ message: "Assignment due date has passed" });
     }
 
-    // Determine submission URL and filename
-    let submissionUrl;
-    let fileName;
-    
-    if (fileUrl) {
-      // Google Drive link
-      submissionUrl = fileUrl;
-      fileName = req.body.fileName || "Submission from Google Drive";
-    } else {
-      // File upload
-      submissionUrl = `/api/assignments/submissions/${file.filename}`;
-      fileName = file.originalname;
-    }
-
     // Check if student already submitted
     const existingSubmission = await Submission.findOne({
       assignmentId: assignmentId,
       studentId: studentId,
     });
 
+    const submissionData = {
+      assignmentId: assignmentId,
+      studentId: studentId,
+    };
+
+    // Add files array if we have files, otherwise use legacy fields
+    if (files.length > 0) {
+      submissionData.files = files;
+      // Also set first file for backward compatibility
+      submissionData.submissionUrl = files[0].fileUrl;
+      submissionData.fileName = files[0].fileName;
+    } else if (submissionUrl) {
+      submissionData.submissionUrl = submissionUrl;
+      submissionData.fileName = fileName;
+    }
+
     if (existingSubmission) {
       console.log(`[submitAssignment] Updating existing submission`);
       // Update existing submission
-      existingSubmission.submissionUrl = submissionUrl;
-      existingSubmission.fileName = fileName;
+      if (files.length > 0) {
+        existingSubmission.files = files;
+        existingSubmission.submissionUrl = files[0].fileUrl;
+        existingSubmission.fileName = files[0].fileName;
+      } else {
+        existingSubmission.submissionUrl = submissionUrl;
+        existingSubmission.fileName = fileName;
+      }
       await existingSubmission.save();
       await existingSubmission.populate("studentId", "name email");
       console.log(`[submitAssignment] Updated submission:`, existingSubmission._id);
@@ -147,12 +190,7 @@ export const submitAssignment = async (req, res) => {
 
     // Create new submission
     console.log(`[submitAssignment] Creating new submission`);
-    const created = await Submission.create({
-      assignmentId: assignmentId,
-      studentId: studentId,
-      submissionUrl: submissionUrl,
-      fileName: fileName,
-    });
+    const created = await Submission.create(submissionData);
 
     console.log(`[submitAssignment] Created submission:`, created._id);
     await created.populate("studentId", "name email");

@@ -39,7 +39,13 @@ app = Flask(__name__)
 # This allows your teammates' frontend (on a different domain) to call your API
 # Allow CORS from all origins (useful for development). If you need to restrict origins,
 # replace '*' with a list of allowed origins or a specific domain.
-CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
+allowed_origins = os.environ.get("ALLOWED_ORIGINS", "*")
+if allowed_origins == "*":
+    CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
+else:
+    # Split comma-separated origins
+    origins_list = [origin.strip() for origin in allowed_origins.split(",")]
+    CORS(app, resources={r"/*": {"origins": origins_list}}, supports_credentials=True)
 
 # --- 4. GLOBAL CONSTANTS ---
 DB_PATH = "./chroma_db"
@@ -665,6 +671,9 @@ def handle_chat():
 
 # --- 9. RUN THE FLASK SERVER ---
 if __name__ == "__main__":
-    # Runs the server on port 5000 and makes it accessible on your network
-    # 'debug=True' automatically reloads the server when you save changes
-    app.run(host='0.0.0.0', port=5001, debug=True)
+    # Get port from environment variable (Render provides this) or default to 5001
+    port = int(os.environ.get("PORT", 5001))
+    # Disable debug mode in production
+    debug = os.environ.get("FLASK_ENV") == "development"
+    # Runs the server on port from environment and makes it accessible on your network
+    app.run(host='0.0.0.0', port=port, debug=debug)
