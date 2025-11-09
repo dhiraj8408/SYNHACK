@@ -437,3 +437,91 @@ export const getQuizAttempts = async (req, res) => {
   }
 };
 
+export const getQuizLeaderboard = async (req, res) => {
+  try {
+    const { quizId } = req.query;
+
+    if (!quizId) {
+      return res.status(400).json({ message: "quizId is required" });
+    }
+
+    const quiz = await Quiz.findById(quizId);
+    if (!quiz) {
+      return res.status(404).json({ message: "Quiz not found" });
+    }
+
+    const course = await Course.findById(quiz.courseId);
+    if (!course) {
+      return res.status(404).json({ message: "Course not found" });
+    }
+
+    // Check if user is enrolled in the course (student) or is professor/admin
+    const isEnrolled = course.studentIds?.some(id => id.toString() === req.user.id.toString());
+    const isProfessor = course.professorId?.toString() === req.user.id.toString() || req.user.role === "admin";
+
+    if (!isEnrolled && !isProfessor) {
+      return res.status(403).json({ message: "You are not enrolled in this course" });
+    }
+
+    // Get all attempts for this quiz
+    const attempts = await QuizAttempt.find({ 
+      quizId,
+      isGraded: true 
+    })
+      .populate("studentId", "name email");
+
+    // Sort attempts: by score (descending), then by time spent (ascending), then by submission time (ascending)
+    attempts.sort((a, b) => {
+      // First sort by total score (descending)
+      if (b.totalScore !== a.totalScore) {
+        return b.totalScore - a.totalScore;
+      }
+      // If scores are equal, sort by percentage (descending)
+      if (b.percentage !== a.percentage) {
+        return b.percentage - a.percentage;
+      }
+      // If scores and percentages are equal, sort by time spent (ascending - faster is better)
+      if (a.timeSpent !== b.timeSpent) {
+        return a.timeSpent - b.timeSpent;
+      }
+      // If everything is equal, sort by submission time (ascending - earlier is better)
+      return new Date(a.submittedAt) - new Date(b.submittedAt);
+    });
+
+    // Add ranking to each attempt (handle ties properly)
+    let currentRank = 1;
+    const leaderboard = attempts.map((attempt, index) => {
+      // If this is not the first attempt and scores are different from previous, update rank
+      if (index > 0) {
+        const prevAttempt = attempts[index - 1];
+        if (prevAttempt.totalScore !== attempt.totalScore || 
+            prevAttempt.percentage !== attempt.percentage) {
+          currentRank = index + 1;
+        }
+        // If scores are same but time is different, keep same rank (tie)
+      }
+
+      return {
+        rank: currentRank,
+        studentId: attempt.studentId._id,
+        studentName: attempt.studentId.name,
+        studentEmail: attempt.studentId.email,
+        totalScore: attempt.totalScore,
+        totalPoints: quiz.totalPoints,
+        percentage: attempt.percentage,
+        timeSpent: attempt.timeSpent,
+        submittedAt: attempt.submittedAt,
+        isCurrentUser: attempt.studentId._id.toString() === req.user.id.toString(),
+      };
+    });
+
+    res.json({
+      quizTitle: quiz.title,
+      totalPoints: quiz.totalPoints,
+      leaderboard,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+

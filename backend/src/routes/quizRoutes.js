@@ -7,6 +7,7 @@ import {
   publishQuiz,
   submitQuiz,
   getQuizAttempts,
+  getQuizLeaderboard,
 } from "../controllers/quizController.js";
 
 const router = Router();
@@ -15,6 +16,7 @@ router.use(auth);
 
 router.get("/", listQuizzes);
 router.get("/attempts", getQuizAttempts);
+router.get("/leaderboard", getQuizLeaderboard);
 router.get("/:id", getQuiz);
 router.post("/", requireRole(["professor", "admin"]), createQuiz);
 router.patch("/:id/publish", requireRole(["professor", "admin"]), publishQuiz);

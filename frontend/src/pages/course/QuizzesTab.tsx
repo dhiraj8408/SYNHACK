@@ -37,6 +37,9 @@ import {
   Trash2,
   Send,
   Sparkles,
+  Trophy,
+  Medal,
+  Award,
 } from 'lucide-react';
 
 interface Question {
@@ -79,6 +82,7 @@ export default function QuizzesTab({ courseId }: QuizzesTabProps) {
   const [loading, setLoading] = useState(true);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isAttemptDialogOpen, setIsAttemptDialogOpen] = useState(false);
+  const [isLeaderboardDialogOpen, setIsLeaderboardDialogOpen] = useState(false);
   const [selectedQuiz, setSelectedQuiz] = useState<Quiz | null>(null);
   const { toast } = useToast();
 
@@ -161,6 +165,10 @@ export default function QuizzesTab({ courseId }: QuizzesTabProps) {
                 quiz={quiz}
                 isProfessor={isProfessor}
                 onAttempt={() => handleAttemptQuiz(quiz)}
+                onViewStandings={() => {
+                  setSelectedQuiz(quiz);
+                  setIsLeaderboardDialogOpen(true);
+                }}
                 onPublish={async (isPublished) => {
                   try {
                     await quizService.publishQuiz(quiz._id, isPublished);
@@ -184,12 +192,19 @@ export default function QuizzesTab({ courseId }: QuizzesTabProps) {
       </CardContent>
 
       {selectedQuiz && (
-        <QuizAttemptDialog
-          quiz={selectedQuiz}
-          open={isAttemptDialogOpen}
-          onOpenChange={setIsAttemptDialogOpen}
-          onSuccess={fetchQuizzes}
-        />
+        <>
+          <QuizAttemptDialog
+            quiz={selectedQuiz}
+            open={isAttemptDialogOpen}
+            onOpenChange={setIsAttemptDialogOpen}
+            onSuccess={fetchQuizzes}
+          />
+          <QuizLeaderboardDialog
+            quiz={selectedQuiz}
+            open={isLeaderboardDialogOpen}
+            onOpenChange={setIsLeaderboardDialogOpen}
+          />
+        </>
       )}
     </Card>
   );
@@ -199,11 +214,13 @@ function QuizCard({
   quiz,
   isProfessor,
   onAttempt,
+  onViewStandings,
   onPublish,
 }: {
   quiz: Quiz;
   isProfessor: boolean;
   onAttempt: () => void;
+  onViewStandings: () => void;
   onPublish: (isPublished: boolean) => void;
 }) {
   const hasAttempted = quiz.attempt && quiz.attempt.isGraded;
@@ -252,23 +269,26 @@ function QuizCard({
             </>
           )}
           {!isProfessor && (
-            <Button
-              onClick={onAttempt}
-              size="sm"
-              disabled={hasAttempted}
-            >
-              {hasAttempted ? (
-                <>
-                  <Eye className="h-4 w-4 mr-2" />
-                  View Results
-                </>
-              ) : (
-                <>
+            <>
+              {!hasAttempted ? (
+                <Button
+                  onClick={onAttempt}
+                  size="sm"
+                >
                   <Play className="h-4 w-4 mr-2" />
                   Attempt Quiz
-                </>
+                </Button>
+              ) : (
+                <Button
+                  onClick={onViewStandings}
+                  size="sm"
+                  variant="outline"
+                >
+                  <Trophy className="h-4 w-4 mr-2" />
+                  View Standings
+                </Button>
               )}
-            </Button>
+            </>
           )}
         </div>
       </div>
@@ -1078,10 +1098,14 @@ function QuizAttemptDialog({
       
       toast({
         title: 'Quiz Submitted!',
-        description: `Your score: ${response.totalScore}/${response.totalPoints} (${response.percentage.toFixed(1)}%)`,
+        description: `Your score: ${response.totalScore}/${response.totalPoints} (${response.percentage.toFixed(1)}%). Click "View Standings" to see your ranking!`,
       });
 
       onSuccess();
+      // Close the dialog after submission - user can view standings from the quiz card
+      setTimeout(() => {
+        onOpenChange(false);
+      }, 2000);
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -1151,18 +1175,36 @@ function QuizAttemptDialog({
         )}
 
         {showResults && (
-          <div className="space-y-6">
-            {questionsToShow.map((question: any, index: number) => (
-              <QuestionResult
-                key={index}
-                question={question}
-                index={index}
-                studentAnswer={question.studentAnswer}
-                isCorrect={question.isCorrect}
-                pointsEarned={question.pointsEarned}
-                showResults={quiz.showResults}
-              />
-            ))}
+          <div className="space-y-4">
+            <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg text-center">
+              <p className="text-lg font-semibold mb-2">
+                Quiz Submitted Successfully!
+              </p>
+              <p className="text-sm text-muted-foreground mb-4">
+                Your score: {results.totalScore}/{results.totalPoints} ({results.percentage.toFixed(1)}%)
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Close this dialog and click "View Standings" on the quiz card to see your ranking!
+              </p>
+            </div>
+            {quiz.showResults && (
+              <div className="space-y-6">
+                <div className="border-t pt-4">
+                  <p className="font-semibold mb-4">Question Review:</p>
+                </div>
+                {questionsToShow.map((question: any, index: number) => (
+                  <QuestionResult
+                    key={index}
+                    question={question}
+                    index={index}
+                    studentAnswer={question.studentAnswer}
+                    isCorrect={question.isCorrect}
+                    pointsEarned={question.pointsEarned}
+                    showResults={quiz.showResults}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         )}
       </DialogContent>
@@ -1339,6 +1381,150 @@ function QuestionResult({
         </div>
       )}
     </div>
+  );
+}
+
+// Quiz Leaderboard Dialog Component
+function QuizLeaderboardDialog({
+  quiz,
+  open,
+  onOpenChange,
+}: {
+  quiz: Quiz;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { user } = useAuth();
+  const [leaderboard, setLeaderboard] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (open && quiz) {
+      loadLeaderboard();
+    }
+  }, [open, quiz]);
+
+  const loadLeaderboard = async () => {
+    try {
+      setLoading(true);
+      const data = await quizService.getQuizLeaderboard(quiz._id);
+      setLeaderboard(data);
+    } catch (error: any) {
+      toast({
+        title: 'Error loading leaderboard',
+        description: error.response?.data?.message || 'Failed to load leaderboard',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const getRankIcon = (rank: number) => {
+    if (rank === 1) return <Trophy className="h-5 w-5 text-yellow-500" />;
+    if (rank === 2) return <Medal className="h-5 w-5 text-gray-400" />;
+    if (rank === 3) return <Award className="h-5 w-5 text-amber-600" />;
+    return <span className="text-lg font-bold text-muted-foreground w-5">{rank}</span>;
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Trophy className="h-5 w-5" />
+            Quiz Leaderboard
+          </DialogTitle>
+          <DialogDescription>
+            {leaderboard?.quizTitle || quiz.title} - Competitive Rankings
+          </DialogDescription>
+        </DialogHeader>
+
+        {loading ? (
+          <div className="text-center py-12">
+            <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto"></div>
+            <p className="mt-4 text-muted-foreground">Loading leaderboard...</p>
+          </div>
+        ) : leaderboard && leaderboard.leaderboard.length > 0 ? (
+          <div className="space-y-4">
+            <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium">Total Points</p>
+                  <p className="text-2xl font-bold">{leaderboard.totalPoints}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Total Participants</p>
+                  <p className="text-2xl font-bold">{leaderboard.leaderboard.length}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              {leaderboard.leaderboard.map((entry: any) => (
+                <div
+                  key={entry.studentId}
+                  className={`p-4 border rounded-lg transition-all ${
+                    entry.isCurrentUser
+                      ? 'bg-primary/10 border-primary/30 shadow-md'
+                      : 'bg-card hover:bg-muted/50'
+                  }`}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center justify-center w-12 h-12">
+                      {getRankIcon(entry.rank)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className={`font-semibold ${entry.isCurrentUser ? 'text-primary' : ''}`}>
+                          {entry.studentName}
+                        </p>
+                        {entry.isCurrentUser && (
+                          <Badge variant="default" className="text-xs">You</Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                        <span className="font-medium text-foreground">
+                          Score: {entry.totalScore}/{entry.totalPoints}
+                        </span>
+                        <span>Percentage: {entry.percentage.toFixed(1)}%</span>
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {formatTime(entry.timeSpent)}
+                        </span>
+                        <span>
+                          {new Date(entry.submittedAt).toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className={`text-2xl font-bold ${entry.isCurrentUser ? 'text-primary' : 'text-muted-foreground'}`}>
+                        {entry.percentage.toFixed(1)}%
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <Trophy className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <p className="text-muted-foreground">No submissions yet</p>
+            <p className="text-sm text-muted-foreground mt-2">
+              Be the first to attempt this quiz!
+            </p>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 

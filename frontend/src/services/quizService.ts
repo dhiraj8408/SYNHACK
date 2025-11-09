@@ -50,5 +50,12 @@ export const quizService = {
     });
     return response.data;
   },
+
+  getQuizLeaderboard: async (quizId: string) => {
+    const response = await apiClient.get('/api/quizzes/leaderboard', {
+      params: { quizId },
+    });
+    return response.data;
+  },
 };
 
