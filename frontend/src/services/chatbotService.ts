@@ -8,6 +8,16 @@ export const chatbotService = {
         });
         return response.data;
     },
+    
+    generateQuestions: async (topic: string, questionType: string, numQuestions: number, difficulty: string = 'medium') => {
+        const response = await chatClient.post("/chatbot-api/generate-questions", {
+            topic,
+            questionType,
+            numQuestions,
+            difficulty,
+        });
+        return response.data;
+    },
 };
 
 export const ingestDocuments = async (data: any) => {

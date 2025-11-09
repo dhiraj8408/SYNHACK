@@ -23,6 +23,7 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { useAuth } from '@/context/AuthContext';
 import { quizService } from '@/services/quizService';
+import { chatbotService } from '@/services/chatbotService';
 import { useToast } from '@/hooks/use-toast';
 import {
   FileText,
@@ -35,6 +36,7 @@ import {
   Edit,
   Trash2,
   Send,
+  Sparkles,
 } from 'lucide-react';
 
 interface Question {
@@ -295,6 +297,14 @@ function CreateQuizDialog({
   });
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(false);
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiDialogOpen, setAiDialogOpen] = useState(false);
+  const [aiFormData, setAiFormData] = useState({
+    topic: '',
+    questionType: 'mcq_single' as 'mcq_single' | 'mcq_multiple' | 'numerical',
+    numQuestions: 1,
+    difficulty: 'medium' as 'easy' | 'medium' | 'hard',
+  });
   const { toast } = useToast();
 
   const addQuestion = () => {
@@ -343,6 +353,66 @@ function CreateQuizDialog({
 
   const removeQuestion = (index: number) => {
     setQuestions(questions.filter((_, i) => i !== index));
+  };
+
+  const handleGenerateQuestions = async () => {
+    if (!aiFormData.topic.trim()) {
+      toast({
+        title: 'Error',
+        description: 'Please enter a topic for question generation',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      setAiGenerating(true);
+      const response = await chatbotService.generateQuestions(
+        aiFormData.topic,
+        aiFormData.questionType,
+        aiFormData.numQuestions,
+        aiFormData.difficulty
+      );
+
+      if (response.questions && response.questions.length > 0) {
+        // Convert AI-generated questions to our format
+        const newQuestions: Question[] = response.questions.map((q: any) => ({
+          questionText: q.questionText || '',
+          questionType: q.questionType || aiFormData.questionType,
+          options: q.options || [],
+          correctAnswer: q.correctAnswer,
+          correctAnswers: q.correctAnswers,
+          points: q.points || 1,
+          explanation: q.explanation || '',
+        }));
+
+        // Add generated questions to existing questions
+        setQuestions([...questions, ...newQuestions]);
+        
+        toast({
+          title: 'Success',
+          description: `Generated ${newQuestions.length} question(s) successfully`,
+        });
+        
+        setAiDialogOpen(false);
+        setAiFormData({
+          topic: '',
+          questionType: 'mcq_single',
+          numQuestions: 1,
+          difficulty: 'medium',
+        });
+      } else {
+        throw new Error('No questions generated');
+      }
+    } catch (error: any) {
+      toast({
+        title: 'Error generating questions',
+        description: error.response?.data?.error || error.message || 'Failed to generate questions. Make sure course materials have been ingested.',
+        variant: 'destructive',
+      });
+    } finally {
+      setAiGenerating(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -564,10 +634,124 @@ function CreateQuizDialog({
           <div className="border-t pt-4">
             <div className="flex items-center justify-between mb-4">
               <Label className="text-lg">Questions ({questions.length})</Label>
-              <Button type="button" onClick={addQuestion} variant="outline" size="sm">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Question
-              </Button>
+              <div className="flex gap-2">
+                <Dialog open={aiDialogOpen} onOpenChange={setAiDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button type="button" variant="outline" size="sm">
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      Generate with AI
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                      <DialogTitle>AI Question Generator</DialogTitle>
+                      <DialogDescription>
+                        Generate quiz questions based on your course materials using AI
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 mt-4">
+                      <div>
+                        <Label htmlFor="ai-topic">Topic *</Label>
+                        <Input
+                          id="ai-topic"
+                          value={aiFormData.topic}
+                          onChange={(e) => setAiFormData({ ...aiFormData, topic: e.target.value })}
+                          placeholder="e.g., Database Normalization, OOP Concepts, etc."
+                          required
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Enter the topic you want questions about
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="ai-question-type">Question Type *</Label>
+                          <Select
+                            value={aiFormData.questionType}
+                            onValueChange={(value: 'mcq_single' | 'mcq_multiple' | 'numerical') =>
+                              setAiFormData({ ...aiFormData, questionType: value })
+                            }
+                          >
+                            <SelectTrigger id="ai-question-type">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="mcq_single">Single Choice MCQ</SelectItem>
+                              <SelectItem value="mcq_multiple">Multiple Choice MCQ</SelectItem>
+                              <SelectItem value="numerical">Numerical</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div>
+                          <Label htmlFor="ai-num-questions">Number of Questions *</Label>
+                          <Input
+                            id="ai-num-questions"
+                            type="number"
+                            min="1"
+                            max="10"
+                            value={aiFormData.numQuestions}
+                            onChange={(e) =>
+                              setAiFormData({ ...aiFormData, numQuestions: parseInt(e.target.value) || 1 })
+                            }
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="ai-difficulty">Difficulty Level</Label>
+                        <Select
+                          value={aiFormData.difficulty}
+                          onValueChange={(value: 'easy' | 'medium' | 'hard') =>
+                            setAiFormData({ ...aiFormData, difficulty: value })
+                          }
+                        >
+                          <SelectTrigger id="ai-difficulty">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="easy">Easy</SelectItem>
+                            <SelectItem value="medium">Medium</SelectItem>
+                            <SelectItem value="hard">Hard</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="flex justify-end gap-2 pt-4">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setAiDialogOpen(false)}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          type="button"
+                          onClick={handleGenerateQuestions}
+                          disabled={aiGenerating || !aiFormData.topic.trim()}
+                        >
+                          {aiGenerating ? (
+                            <>
+                              <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent mr-2" />
+                              Generating...
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="h-4 w-4 mr-2" />
+                              Generate Questions
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+                <Button type="button" onClick={addQuestion} variant="outline" size="sm">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Question
+                </Button>
+              </div>
             </div>
 
             <div className="space-y-6">

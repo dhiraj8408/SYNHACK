@@ -366,7 +366,220 @@ def handle_ingestion():
     }), 202
 
 
-# --- 8. API ENDPOINT: /chatbot-api/chat (For Students) ---
+# --- 8. API ENDPOINT: /chatbot-api/generate-questions (For Professors) ---
+
+@app.route("/chatbot-api/generate-questions", methods=["POST"])
+def handle_generate_questions():
+    """
+    Handles question generation requests from professors.
+    Uses RAG to generate quiz questions based on ingested course materials.
+    """
+    
+    data = request.json
+    topic = data.get("topic", "")
+    question_type = data.get("questionType", "mcq_single")  # mcq_single, mcq_multiple, numerical
+    num_questions = data.get("numQuestions", 1)
+    difficulty = data.get("difficulty", "medium")  # easy, medium, hard
+    
+    if not topic:
+        return jsonify({"error": "Topic is required"}), 400
+    
+    if num_questions < 1 or num_questions > 10:
+        return jsonify({"error": "Number of questions must be between 1 and 10"}), 400
+    
+    print(f"\n--- New Question Generation Request ---")
+    print(f"Topic: {topic}, Type: {question_type}, Count: {num_questions}, Difficulty: {difficulty}")
+
+    try:
+        # 1. Vectorize the topic to find relevant context
+        topic_vector = embedding_model.encode(topic).tolist()
+
+        # 2. Query ChromaDB to find relevant context
+        print("Searching for relevant context...")
+        results = collection.query(
+            query_embeddings=[topic_vector],
+            n_results=10  # Get more context for better question generation
+        )
+        
+        context_chunks = results['documents'][0]
+        context = "\n\n".join(context_chunks)
+        
+        if not context_chunks:
+            print("No relevant context found in database.")
+            return jsonify({"error": "No relevant course materials found for this topic. Please ensure materials have been ingested."}), 404
+
+        print(f"Found context: {context[:300]}...")  # Print first 300 chars
+
+        # 3. Build the prompt for question generation
+        question_type_description = {
+            "mcq_single": "multiple choice with a single correct answer (provide 4 options)",
+            "mcq_multiple": "multiple choice with multiple correct answers (provide 4-5 options, at least 2 correct)",
+            "numerical": "numerical answer question (requires a number as answer)"
+        }
+        
+        difficulty_instruction = {
+            "easy": "Basic concepts and definitions",
+            "medium": "Application and understanding of concepts",
+            "hard": "Analysis, synthesis, and complex problem-solving"
+        }
+        
+        system_prompt = f"""
+        You are an expert quiz question generator for the VNIT Learning Management System.
+        Your task is to generate high-quality quiz questions based ONLY on the provided course materials.
+        
+        Instructions:
+        1. Generate {num_questions} {question_type_description.get(question_type, 'multiple choice')} question(s).
+        2. Difficulty level: {difficulty_instruction.get(difficulty, 'medium')}
+        3. Base questions STRICTLY on the provided context. Do not use external knowledge.
+        4. Questions should test understanding of the topic: "{topic}"
+        5. For MCQ questions, make distractors plausible but clearly incorrect.
+        6. For numerical questions, provide the exact numerical answer.
+        7. Include brief explanations for why the answer is correct.
+        
+        Format your response as a JSON array with this structure:
+        [
+            {{
+                "questionText": "The question text here",
+                "questionType": "{question_type}",
+                "options": ["Option A", "Option B", "Option C", "Option D"],  // Only for MCQ types
+                "correctAnswer": "Option A",  // For mcq_single or numerical value for numerical
+                "correctAnswers": ["Option A", "Option B"],  // For mcq_multiple
+                "points": 1,
+                "explanation": "Brief explanation of why this is correct"
+            }}
+        ]
+        
+        Return ONLY valid JSON, no additional text.
+        """
+        
+        final_prompt = f"""
+        {system_prompt}
+        
+        ---
+        Course Materials Context:
+        {context}
+        ---
+        
+        Topic: {topic}
+        
+        Generate {num_questions} question(s) now:
+        """
+
+        # 4. Call Groq LLM
+        print("Sending prompt to Groq for question generation...")
+        chat_completion = groq_client.chat.completions.create(
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant that generates quiz questions. Always return valid JSON arrays."},
+                {"role": "user", "content": final_prompt}
+            ],
+            model=GROQ_MODEL,
+            temperature=0.7,  # Slightly creative but still focused
+        )
+        
+        response_text = chat_completion.choices[0].message.content
+        print(f"Groq Response: {response_text[:300]}...")
+
+        # 5. Parse JSON response
+        try:
+            import json
+            import re
+            
+            # Clean the response - remove markdown code blocks if present
+            cleaned_text = response_text.strip()
+            if cleaned_text.startswith('```json'):
+                cleaned_text = cleaned_text[7:]
+            elif cleaned_text.startswith('```'):
+                cleaned_text = cleaned_text[3:]
+            if cleaned_text.endswith('```'):
+                cleaned_text = cleaned_text[:-3]
+            cleaned_text = cleaned_text.strip()
+            
+            # Try to extract JSON from response
+            if cleaned_text.startswith('['):
+                questions = json.loads(cleaned_text)
+            elif cleaned_text.startswith('{'):
+                # Single question wrapped in object or questions key
+                obj = json.loads(cleaned_text)
+                if 'questions' in obj:
+                    questions = obj['questions']
+                elif 'question' in obj:
+                    questions = [obj['question']]
+                else:
+                    # Treat the whole object as a single question
+                    questions = [obj]
+            else:
+                # Try to find JSON array in the response
+                json_match = re.search(r'\[.*\]', cleaned_text, re.DOTALL)
+                if json_match:
+                    questions = json.loads(json_match.group())
+                else:
+                    # Try to find JSON object
+                    json_match = re.search(r'\{.*\}', cleaned_text, re.DOTALL)
+                    if json_match:
+                        obj = json.loads(json_match.group())
+                        questions = [obj] if isinstance(obj, dict) else obj
+                    else:
+                        raise ValueError("Could not find JSON in response")
+            
+            # Validate and clean questions
+            validated_questions = []
+            for q in questions:
+                if not isinstance(q, dict):
+                    continue
+                
+                # Ensure required fields
+                if 'questionText' not in q or 'questionType' not in q:
+                    continue
+                
+                # Set question type
+                q['questionType'] = question_type
+                
+                # Ensure points
+                if 'points' not in q:
+                    q['points'] = 1
+                
+                # Validate based on type
+                if question_type in ['mcq_single', 'mcq_multiple']:
+                    if 'options' not in q or not isinstance(q['options'], list) or len(q['options']) < 2:
+                        continue
+                    if question_type == 'mcq_single':
+                        if 'correctAnswer' not in q:
+                            continue
+                    else:
+                        if 'correctAnswers' not in q or not isinstance(q['correctAnswers'], list):
+                            continue
+                elif question_type == 'numerical':
+                    if 'correctAnswer' not in q:
+                        continue
+                    # Convert to number
+                    try:
+                        q['correctAnswer'] = float(q['correctAnswer'])
+                    except:
+                        continue
+                
+                validated_questions.append(q)
+            
+            if not validated_questions:
+                return jsonify({"error": "Failed to generate valid questions. Please try again."}), 500
+            
+            print(f"Generated {len(validated_questions)} valid question(s)")
+            return jsonify({"questions": validated_questions})
+            
+        except json.JSONDecodeError as e:
+            print(f"JSON parsing error: {e}")
+            return jsonify({"error": f"Failed to parse generated questions: {str(e)}"}), 500
+        except Exception as e:
+            print(f"Error processing questions: {e}")
+            return jsonify({"error": f"Error processing generated questions: {str(e)}"}), 500
+
+    except Exception as e:
+        print(f"Error during question generation: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"An internal error occurred: {e}"}), 500
+
+
+# --- 9. API ENDPOINT: /chatbot-api/chat (For Students) ---
 
 @app.route("/chatbot-api/chat", methods=["POST"])
 def handle_chat():
