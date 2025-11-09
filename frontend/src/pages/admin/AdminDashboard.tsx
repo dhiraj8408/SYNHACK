@@ -76,6 +76,7 @@ export default function AdminDashboard() {
     department: '',
     professorEmail: '',
     enableCodingPlatform: false,
+    duration: '',
   });
   const [courseStudentsFile, setCourseStudentsFile] = useState<File | null>(null);
 
@@ -194,7 +195,7 @@ export default function AdminDashboard() {
         title: 'Course created successfully!',
         description: result.enrollment ? `Enrolled ${result.enrollment.enrolled} students` : undefined,
       });
-      setCourseData({ courseCode: '', courseName: '', semester: '', department: '', professorEmail: '', enableCodingPlatform: false });
+      setCourseData({ courseCode: '', courseName: '', semester: '', department: '', professorEmail: '', enableCodingPlatform: false, duration: '' });
       setCourseStudentsFile(null);
       loadCourses();
     } catch (error: any) {
@@ -639,6 +640,19 @@ export default function AdminDashboard() {
                       />
                       <p className="text-xs text-muted-foreground">
                         Enter the professor's email address
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="duration">Duration</Label>
+                      <Input
+                        id="duration"
+                        value={courseData.duration}
+                        onChange={(e) => setCourseData({ ...courseData, duration: e.target.value })}
+                        placeholder="e.g., 3 months, 16 weeks, 1 semester"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Enter the course duration (optional)
                       </p>
                     </div>
                   </div>

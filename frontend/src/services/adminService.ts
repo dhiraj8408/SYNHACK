@@ -59,6 +59,7 @@ export const adminService = {
       department: string;
       professorEmail: string;
       enableCodingPlatform?: boolean;
+      duration?: string;
     },
     studentsFile?: File | null
   ) => {
@@ -70,6 +71,9 @@ export const adminService = {
       formData.append('department', courseData.department);
       formData.append('professorEmail', courseData.professorEmail);
       formData.append('enableCodingPlatform', courseData.enableCodingPlatform ? 'true' : 'false');
+      if (courseData.duration) {
+        formData.append('duration', courseData.duration);
+      }
       formData.append('studentsFile', studentsFile);
       const response = await apiClient.post('/api/admin/course', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },

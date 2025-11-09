@@ -23,6 +23,10 @@ const courseSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+
+    duration: {
+      type: String,
+    },
   },
   { timestamps: true }
 );
