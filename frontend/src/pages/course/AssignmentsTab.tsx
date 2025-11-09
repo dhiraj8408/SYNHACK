@@ -12,6 +12,7 @@ import { assignmentService } from '@/services/assignmentService';
 import { useToast } from '@/hooks/use-toast';
 import { FileText, Clock, Plus, Upload, Download, CheckCircle, XCircle, Users, FileDown } from 'lucide-react';
 import apiClient from '@/services/apiClient';
+import MaterialViewer from '@/components/MaterialViewer';
 
 interface AssignmentsTabProps {
   courseId: string;
@@ -474,30 +475,13 @@ export default function AssignmentsTab({ courseId }: AssignmentsTabProps) {
                 )}
                 {selectedAssignment.fileUrl && (
                   <div>
-                    <Label>Assignment File</Label>
+                    <Label>Assignment Material</Label>
                     <div className="mt-2">
-                      <Button
-                        variant="outline"
-                        onClick={() => {
-                          const url = selectedAssignment.fileUrl!;
-                          // If it's a relative path (starts with /api/), prepend the API base URL
-                          // Otherwise, it's likely a Google Drive link or external URL - open directly
-                          if (url.startsWith('/api/')) {
-                            const API_BASE_URL = import.meta.env.VITE_BACKEND_API_URL || 'http://localhost:5000';
-                            window.open(`${API_BASE_URL}${url}`, '_blank');
-                          } else if (url.startsWith('http://') || url.startsWith('https://')) {
-                            // It's already a full URL (Google Drive link, etc.)
-                            window.open(url, '_blank');
-                          } else {
-                            // Fallback: try with base URL
-                            const API_BASE_URL = import.meta.env.VITE_BACKEND_API_URL || 'http://localhost:5000';
-                            window.open(`${API_BASE_URL}/${url}`, '_blank');
-                          }
-                        }}
-                      >
-                        <Download className="h-4 w-4 mr-2" />
-                        {selectedAssignment.fileName || 'Download File'}
-                      </Button>
+                      <MaterialViewer
+                        fileUrl={selectedAssignment.fileUrl}
+                        fileName={selectedAssignment.fileName}
+                        className="mt-2"
+                      />
                     </div>
                   </div>
                 )}

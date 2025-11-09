@@ -42,6 +42,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ingestDocuments } from "@/services/chatbotService";
+import MaterialViewer from "@/components/MaterialViewer";
 
 interface ContentTabProps {
     courseId: string;
@@ -62,6 +63,8 @@ export default function ContentTab({ courseId }: ContentTabProps) {
         link: "",
     });
     const [uploading, setUploading] = useState(false);
+    const [selectedMaterial, setSelectedMaterial] = useState<any>(null);
+    const [showMaterialDialog, setShowMaterialDialog] = useState(false);
     const { toast } = useToast();
 
     const isProfessor = user?.role === "professor" || user?.role === "admin";
@@ -152,7 +155,7 @@ export default function ContentTab({ courseId }: ContentTabProps) {
             }
 
             await materialService.uploadMaterial(formData);
-            if (uploadType === "link") {
+            if (uploadType === "link" && uploadData.link.includes("drive.google.com")) {
                 await ingestDocuments({ drive_link: uploadData.link });
             }
 
@@ -650,7 +653,13 @@ export default function ContentTab({ courseId }: ContentTabProps) {
                                                                         }
                                                                         className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-muted/50 transition-colors"
                                                                     >
-                                                                        <div className="flex items-center gap-3">
+                                                                        <div 
+                                                                            className="flex items-center gap-3 flex-1 cursor-pointer"
+                                                                            onClick={() => {
+                                                                                setSelectedMaterial(material);
+                                                                                setShowMaterialDialog(true);
+                                                                            }}
+                                                                        >
                                                                             <FileText className="h-5 w-5 text-primary" />
                                                                             <div>
                                                                                 <h4 className="font-medium">
@@ -672,11 +681,10 @@ export default function ContentTab({ courseId }: ContentTabProps) {
                                                                         <Button
                                                                             variant="outline"
                                                                             size="sm"
-                                                                            onClick={() =>
-                                                                                handleDownload(
-                                                                                    material
-                                                                                )
-                                                                            }
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                handleDownload(material);
+                                                                            }}
                                                                         >
                                                                             <Download className="h-4 w-4" />
                                                                         </Button>
@@ -700,6 +708,29 @@ export default function ContentTab({ courseId }: ContentTabProps) {
                     )}
                 </CardContent>
             </Card>
+
+            {/* Material Viewer Dialog */}
+            <Dialog open={showMaterialDialog} onOpenChange={setShowMaterialDialog}>
+                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                    {selectedMaterial && (
+                        <>
+                            <DialogHeader>
+                                <DialogTitle>{selectedMaterial.moduleTitle}</DialogTitle>
+                                <DialogDescription>
+                                    {selectedMaterial.module} • {selectedMaterial.type.toUpperCase()}
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="mt-4">
+                                <MaterialViewer
+                                    fileUrl={selectedMaterial.fileUrl}
+                                    fileName={selectedMaterial.moduleTitle}
+                                    fileType={selectedMaterial.type}
+                                />
+                            </div>
+                        </>
+                    )}
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
